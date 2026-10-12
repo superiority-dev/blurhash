@@ -1,0 +1,29 @@
+version: "2"
+
+linters:
+  default: standard
+  enable:
+    - revive
+    - gocritic
+    - nilerr
+    - nilnil
+    - nilnesserr
+  settings:
+    govet:
+      enable:
+        - nilness
+    errcheck:
+      # Writes to stdout, stderr and injected io.Writers carry no actionable
+      # error, and neither does closing something opened only for reading.
+      # Closing a file that was written to is different and stays checked.
+      exclude-functions:
+        - fmt.Fprint
+        - fmt.Fprintf
+        - fmt.Fprintln
+        - (*os.File).Close
+        - (io.ReadCloser).Close
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
