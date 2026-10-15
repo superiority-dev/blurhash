@@ -17,3 +17,20 @@ func writeBase83(b *strings.Builder, v, n int) {
 		b.WriteByte(digits[v/divisor%base])
 	}
 }
+
+// readBase83 returns the value of the base-83 digits in s, or false if s
+// holds a character that is not one.
+func readBase83(s string) (int, bool) {
+	v := 0
+
+	for i := range len(s) {
+		d := strings.IndexByte(digits, s[i])
+		if d < 0 {
+			return 0, false
+		}
+
+		v = v*base + d
+	}
+
+	return v, true
+}
