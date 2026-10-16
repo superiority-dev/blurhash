@@ -1,7 +1,7 @@
 SHELL := /bin/bash
 .SHELLFLAGS := -o pipefail -ec
 
-GOLANGCI_LINT ?= go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.14.0
+GOLANGCI_LINT ?= go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0
 GOVULNCHECK   ?= go run golang.org/x/vuln/cmd/govulncheck@v1.9.0
 
 .PHONY: check fmt vet lint test vuln
