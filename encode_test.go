@@ -1,10 +1,22 @@
 package blurhash
 
 import (
+	"embed"
 	"errors"
+	"flag"
+	"fmt"
 	"image"
 	"testing"
+
+	"github.com/superiority-dev/blurhash/internal/testimage"
 )
+
+var update = flag.Bool("update", false, "rewrite the files in testdata from the current encoder")
+
+// testdata is embedded so the tests run where only the test binary is.
+//
+//go:embed testdata
+var testdata embed.FS
 
 func TestEncodeErrors(t *testing.T) {
 	img := image.NewRGBA(image.Rect(0, 0, 4, 4))
@@ -26,4 +38,36 @@ func TestEncodeErrors(t *testing.T) {
 			t.Errorf("Encode of %v: error %v, want ErrInvalidDimensions", r, err)
 		}
 	}
+}
+
+// Every hash that differs from comparison.txt must be listed in
+// testdata/differences.txt, so a new difference and a vanished one both fail.
+func TestEncodeComparison(t *testing.T) {
+	file, err := testimage.Comparisons()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var got []string
+
+	n := 0
+
+	for _, c := range testimage.Cases() {
+		img := c.Image()
+
+		for _, comp := range c.Components {
+			h, err := Encode(comp.X, comp.Y, img)
+			if err != nil {
+				t.Fatalf("%s at %v: %v", c.ID, comp, err)
+			}
+
+			if h != file.Results[n].Hash {
+				got = append(got, fmt.Sprintf("%s %v %s", c.ID, comp, h))
+			}
+
+			n++
+		}
+	}
+
+	testimage.Golden(t, testdata, "testdata/differences.txt", got, *update)
 }
