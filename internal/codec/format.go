@@ -5,9 +5,10 @@ import (
 	"strings"
 )
 
-// format quantises the coefficients and writes them as a hash. The
-// quantisation is the reference encoder's.
-func format(nx, ny int, f [][3]float64) string {
+// format quantises the coefficients and writes them as a hash, with each
+// channel's DC tie, where it has one, as its DC byte. The quantisation is the
+// reference encoder's.
+func format(nx, ny int, f [][3]float64, dcTie [3]int) string {
 	var b strings.Builder
 
 	// The size digit, the maximum, 4 digits of DC and 2 per AC component.
@@ -33,7 +34,16 @@ func format(nx, ny int, f [][3]float64) string {
 		writeBase83(&b, 0, 1)
 	}
 
-	writeBase83(&b, toSRGB(dc[0])<<16+toSRGB(dc[1])<<8+toSRGB(dc[2]), 4)
+	var rgb [3]int
+
+	for c := range rgb {
+		rgb[c] = dcTie[c]
+		if rgb[c] < 0 {
+			rgb[c] = toSRGB(dc[c])
+		}
+	}
+
+	writeBase83(&b, rgb[0]<<16+rgb[1]<<8+rgb[2], 4)
 
 	for _, c := range ac {
 		var d [3]int
