@@ -3,6 +3,8 @@ package codec
 import (
 	"image"
 	"math"
+
+	"github.com/superiority-dev/blurhash/internal/fdlibm"
 )
 
 // Encode returns the BlurHash of img at nx by ny components, each between 1
@@ -126,9 +128,14 @@ func cosines(count, n int) [][]float64 {
 	for k := range out {
 		out[k] = make([]float64, n)
 		for p := range n {
-			out[k][p] = math.Cos(math.Pi * float64(k) * float64(p) / float64(n))
+			out[k][p] = cosine(k, p, n)
 		}
 	}
 
 	return out
+}
+
+// cosine returns cos(pi*k*p/n), the basis value every table holds.
+func cosine(k, p, n int) float64 {
+	return fdlibm.Cos(math.Pi * float64(k) * float64(p) / float64(n))
 }
