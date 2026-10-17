@@ -21,6 +21,27 @@ func Encode(xComponents, yComponents int, img image.Image) (string, error) {
 	return codec.Encode(xComponents, yComponents, img), nil
 }
 
+// An Encoder computes BlurHashes and reuses its memory between calls. The zero
+// value is ready to use. An Encoder should be used by one goroutine at a time;
+// [Encode] is safe for concurrent use.
+type Encoder struct {
+	e codec.Encoder
+}
+
+// NewEncoder returns an Encoder.
+func NewEncoder() *Encoder {
+	return new(Encoder)
+}
+
+// Encode returns the BlurHash of img, as [Encode] does.
+func (e *Encoder) Encode(xComponents, yComponents int, img image.Image) (string, error) {
+	if err := check(xComponents, yComponents, img); err != nil {
+		return "", err
+	}
+
+	return e.e.Encode(xComponents, yComponents, img), nil
+}
+
 func check(xComponents, yComponents int, img image.Image) error {
 	if xComponents < 1 || xComponents > 9 || yComponents < 1 || yComponents > 9 {
 		return fmt.Errorf("%w: got %dx%d", ErrInvalidComponents, xComponents, yComponents)

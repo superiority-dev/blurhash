@@ -1,20 +1,31 @@
 package codec
 
-import "image"
+import (
+	"image"
+	"sync"
+)
+
+// encoders holds the Encoders behind Encode.
+var encoders = sync.Pool{New: func() any { return new(Encoder) }}
 
 // Encode returns the BlurHash of img at nx by ny components, each between 1
 // and 9, for an image with pixels. It is safe for concurrent use.
 func Encode(nx, ny int, img image.Image) string {
-	var e Encoder
+	e := encoders.Get().(*Encoder)
+	hash := e.Encode(nx, ny, img)
+	e.trim()
+	encoders.Put(e)
 
-	return e.Encode(nx, ny, img)
+	return hash
 }
 
-// An Encoder computes BlurHashes and keeps its buffers between calls. The
-// zero value is ready to use. An Encoder is not safe for concurrent use.
+// An Encoder computes BlurHashes and keeps its buffers and cosine tables
+// between calls. The zero value is ready to use. An Encoder is not safe for
+// concurrent use.
 type Encoder struct {
 	line, sum, dif, rows, out [][3]float64
 	result                    [9][3]float64 // mirror's output, for up to 9 components
+	tables                    cache
 }
 
 // Encode returns the BlurHash of img at nx by ny components, each between 1
@@ -30,6 +41,14 @@ func (e *Encoder) Encode(nx, ny int, img image.Image) string {
 	hash, _ := format(nx, ny, factors(nx, ny, p), [3]float64{}, p.dcTie)
 
 	return hash
+}
+
+// trim drops the buffers once they hold over 64 KiB, at 24 bytes a
+// [3]float64, so a pooled Encoder does not keep what one large image needed.
+func (e *Encoder) trim() {
+	if 24*(cap(e.line)+cap(e.sum)+cap(e.dif)+cap(e.rows)+cap(e.out)) > 64<<10 {
+		e.line, e.sum, e.dif, e.rows, e.out = nil, nil, nil, nil, nil
+	}
 }
 
 // coefficients returns the coefficients factors returns, computed by a pass
@@ -51,8 +70,8 @@ func (e *Encoder) Encode(nx, ny int, img image.Image) string {
 func (e *Encoder) coefficients(nx, ny int, img image.Image) ([][3]float64, [3]float64, [3]int) {
 	b := img.Bounds()
 	w, h := b.Dx(), b.Dy()
-	cosX := cosines(nx, w)
-	cosY := cosines(ny, h)
+	cosX := e.tables.get(w, nx)
+	cosY := e.tables.get(h, ny)
 
 	e.line = grow(e.line, w)
 	e.sum = grow(e.sum, max(w, h)/2)

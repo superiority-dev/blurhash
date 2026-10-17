@@ -48,7 +48,10 @@ func TestEncodeComparison(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	var got []string
+	var (
+		got []string
+		e   Encoder
+	)
 
 	n := 0
 
@@ -59,6 +62,10 @@ func TestEncodeComparison(t *testing.T) {
 			h, err := Encode(comp.X, comp.Y, img)
 			if err != nil {
 				t.Fatalf("%s at %v: %v", c.ID, comp, err)
+			}
+
+			if eh, _ := e.Encode(comp.X, comp.Y, img); eh != h {
+				t.Fatalf("%s at %v: Encoder.Encode %s, Encode %s", c.ID, comp, eh, h)
 			}
 
 			if h != file.Results[n].Hash {

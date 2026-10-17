@@ -4,6 +4,7 @@ import (
 	"image"
 	"math"
 	"math/rand/v2"
+	"sync"
 	"testing"
 
 	"github.com/superiority-dev/blurhash/internal/testimage"
@@ -117,7 +118,7 @@ func TestEncodeMatchesReference(t *testing.T) {
 			t.Errorf("%s at %dx%d: Encode returns %s; reference %s", s.id, s.nx, s.ny, got, want)
 		}
 
-		// One Encoder over the whole stream, so its buffers see every size.
+		// One Encoder over the whole stream, so its cache sees every size.
 		if got := e.Encode(s.nx, s.ny, s.img); got != want {
 			t.Errorf("%s at %dx%d: Encoder.Encode returns %s; reference %s", s.id, s.nx, s.ny, got, want)
 		}
@@ -140,8 +141,44 @@ func TestEncodeMatchesReference(t *testing.T) {
 	t.Logf("fell back to factors on %d of %d encodes, %d of them corpus encodes", fallbacks, n, corpus)
 }
 
-// fuzzEncoder is shared by every fuzz input a process runs, so its buffers
-// see a mixed stream.
+// TestEncodeConcurrent runs Encode from 8 goroutines over the samples, keeps
+// every hash and compares them after the last call, so a hash that shares a
+// pooled buffer shows up even without the race detector.
+func TestEncodeConcurrent(t *testing.T) {
+	s := samples()
+
+	want := make([]string, len(s))
+	for i, s := range s {
+		want[i] = reference(s.nx, s.ny, s.img)
+	}
+
+	got := make([][]string, 8)
+
+	var wg sync.WaitGroup
+
+	for g := range got {
+		got[g] = make([]string, len(s))
+
+		wg.Go(func() {
+			for _, i := range rand.New(rand.NewPCG(uint64(g), 0)).Perm(len(s)) {
+				got[g][i] = Encode(s[i].nx, s[i].ny, s[i].img)
+			}
+		})
+	}
+
+	wg.Wait()
+
+	for g := range got {
+		for i := range s {
+			if got[g][i] != want[i] {
+				t.Errorf("goroutine %d, %s at %dx%d: %s, reference %s", g, s[i].id, s[i].nx, s[i].ny, got[g][i], want[i])
+			}
+		}
+	}
+}
+
+// fuzzEncoder is shared by every fuzz input a process runs, so its cache and
+// buffers see a mixed stream.
 var fuzzEncoder Encoder
 
 func FuzzEncode(f *testing.F) {
