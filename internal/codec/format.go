@@ -6,9 +6,14 @@ import (
 )
 
 // format quantises the coefficients and writes them as a hash, with each
-// channel's DC tie, where it has one, as its DC byte. The quantisation is the
-// reference encoder's.
-func format(nx, ny int, f [][3]float64, dcTie [3]int) string {
+// channel's DC tie, where it has one, as its DC byte. It reports false if
+// moving a coefficient by up to its channel's bound could change a digit,
+// checking each by quantising v-e and v+e as computed. A hash it accepts is
+// identical to factors' by derivation, not by test: the bound derived on
+// coefficients in encoder.go, the quantisers being non-decreasing, and the
+// bound's factor of two exceeding the rounding of v-e and v+e at least 500
+// times over. The quantisation is the reference encoder's.
+func format(nx, ny int, f [][3]float64, bound [3]float64, dcTie [3]int) (string, bool) {
 	var b strings.Builder
 
 	// The size digit, the maximum, 4 digits of DC and 2 per AC component.
@@ -28,6 +33,11 @@ func format(nx, ny int, f [][3]float64, dcTie [3]int) string {
 		}
 
 		q := quantiseMaximum(actual)
+		if e := max(bound[0], bound[1], bound[2]); e != 0 &&
+			quantiseMaximum(actual-e) != quantiseMaximum(actual+e) {
+			return "", false
+		}
+
 		maximum = unquantiseMaximum(q)
 		writeBase83(&b, q, 1)
 	} else {
@@ -39,6 +49,10 @@ func format(nx, ny int, f [][3]float64, dcTie [3]int) string {
 	for c := range rgb {
 		rgb[c] = dcTie[c]
 		if rgb[c] < 0 {
+			if e := bound[c]; e != 0 && toSRGB(dc[c]-e) != toSRGB(dc[c]+e) {
+				return "", false
+			}
+
 			rgb[c] = toSRGB(dc[c])
 		}
 	}
@@ -49,13 +63,18 @@ func format(nx, ny int, f [][3]float64, dcTie [3]int) string {
 		var d [3]int
 
 		for k, v := range c {
+			if e := bound[k]; e != 0 &&
+				quantiseAC(v-e, maximum) != quantiseAC(v+e, maximum) {
+				return "", false
+			}
+
 			d[k] = quantiseAC(v, maximum)
 		}
 
 		writeBase83(&b, d[0]*19*19+d[1]*19+d[2], 2)
 	}
 
-	return b.String()
+	return b.String(), true
 }
 
 // quantiseMaximum returns the digit, 0 to 82, of the largest AC magnitude v,

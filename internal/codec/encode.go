@@ -7,14 +7,6 @@ import (
 	"github.com/superiority-dev/blurhash/internal/fdlibm"
 )
 
-// Encode returns the BlurHash of img at nx by ny components, each between 1
-// and 9, for an image with pixels. It is safe for concurrent use.
-func Encode(nx, ny int, img image.Image) string {
-	p := read(img)
-
-	return format(nx, ny, factors(nx, ny, p), p.dcTie)
-}
-
 // pixels is an image in linear light, row by row, with the DC byte of each
 // channel whose DC is an exact tie, or -1.
 type pixels struct {
