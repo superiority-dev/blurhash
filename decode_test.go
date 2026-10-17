@@ -53,6 +53,24 @@ func TestDecodeErrors(t *testing.T) {
 	}
 }
 
+func TestDecodeAllocs(t *testing.T) {
+	dst := image.NewNRGBA(image.Rect(0, 0, 32, 32))
+
+	var d Decoder
+
+	if n := testing.AllocsPerRun(100, func() { _ = d.DecodeDraw(dst, hash4x3, 1) }); n != 0 {
+		t.Errorf("Decoder.DecodeDraw allocates %v times, want 0", n)
+	}
+
+	if raceEnabled {
+		return
+	}
+
+	if n := testing.AllocsPerRun(100, func() { _ = DecodeDraw(dst, hash4x3, 1) }); n != 0 {
+		t.Errorf("DecodeDraw allocates %v times, want 0", n)
+	}
+}
+
 func TestDecodeNonFinitePunch(t *testing.T) {
 	for _, punch := range []float64{math.NaN(), math.Inf(1), math.Inf(-1)} {
 		if _, err := Decode(hash4x3, 8, 8, punch); !errors.Is(err, ErrInvalidPunch) {
@@ -76,11 +94,16 @@ func TestDecodeMatchesDraw(t *testing.T) {
 	want := image.NewNRGBA(image.Rect(0, 0, 7, 5))
 	_ = codec.Draw(want, hash4x3, 1.5)
 
+	var d Decoder
+
 	byDecode, _ := Decode(hash4x3, 7, 5, 1.5)
+	byDecoder, _ := d.Decode(hash4x3, 7, 5, 1.5)
 	byDraw := image.NewNRGBA(want.Rect)
 	_ = DecodeDraw(byDraw, hash4x3, 1.5)
+	byDecoderDraw := image.NewNRGBA(want.Rect)
+	_ = d.DecodeDraw(byDecoderDraw, hash4x3, 1.5)
 
-	for i, got := range []*image.NRGBA{byDecode, byDraw} {
+	for i, got := range []*image.NRGBA{byDecode, byDecoder, byDraw, byDecoderDraw} {
 		if got == nil || got.Rect != want.Rect || !bytes.Equal(got.Pix, want.Pix) {
 			t.Errorf("entry point %d draws differently from codec.Draw", i)
 		}

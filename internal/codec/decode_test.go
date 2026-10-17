@@ -3,9 +3,127 @@ package codec
 import (
 	"errors"
 	"image"
+	"image/color"
+	"image/draw"
 	"math"
+	"math/rand/v2"
+	"slices"
+	"sync"
 	"testing"
+
+	"github.com/superiority-dev/blurhash/internal/testimage"
 )
+
+// nrgbaBytes returns img's pixels as NRGBA bytes, row by row.
+func nrgbaBytes(img image.Image) []uint8 {
+	b := img.Bounds()
+	out := image.NewNRGBA(image.Rect(0, 0, b.Dx(), b.Dy()))
+	draw.Draw(out, out.Rect, img, b.Min, draw.Src)
+
+	return out.Pix
+}
+
+// TestDecoderPixels holds the Decoder's pixels to slowDecode's, byte for byte,
+// over every fixture hash into three destination types, the hashes taking the
+// 25 pairs of the sizes and punches below in turn.
+func TestDecoderPixels(t *testing.T) {
+	var d Decoder
+
+	// Square, single-pixel, odd and thumbnail sizes; punches either side of 1,
+	// zero, and negative.
+	sizes := [][2]int{{32, 32}, {1, 1}, {7, 5}, {32, 24}, {2, 3}}
+	punches := []float64{1, 0.5, 2, 0, -1}
+
+	file, err := testimage.Comparisons()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	n := 0
+
+	for k, hash := range file.Hashes() {
+		s := sizes[k%len(sizes)]
+		punch := punches[k/len(sizes)%len(punches)]
+
+		dsts := []draw.Image{
+			image.NewNRGBA(image.Rect(0, 0, s[0], s[1])),
+			image.NewRGBA(image.Rect(3, -2, 3+s[0], -2+s[1])),
+			image.NewRGBA64(image.Rect(0, 0, s[0], s[1])),
+		}
+
+		slow := image.NewNRGBA(image.Rect(0, 0, s[0], s[1]))
+		if err := slowDecode(slow, hash, punch); err != nil {
+			t.Fatal(err)
+		}
+
+		for _, dst := range dsts {
+			if err := d.Draw(dst, hash, punch); err != nil {
+				t.Fatal(err)
+			}
+
+			if !slices.Equal(nrgbaBytes(dst), slow.Pix) {
+				t.Fatalf("%s at %dx%d, punch %g, into %T: differs from slowDecode",
+					hash, s[0], s[1], punch, dst)
+			}
+
+			n++
+		}
+	}
+
+	t.Logf("%d decodes equal slowDecode's", n)
+}
+
+// TestDecodeConcurrent runs Draw from 8 goroutines over the fixture hashes
+// and compares every image with slowDecode's after the last call.
+func TestDecodeConcurrent(t *testing.T) {
+	file, err := testimage.Comparisons()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	hashes := file.Hashes()[:2000]
+
+	want := make([][]uint8, len(hashes))
+	for i, h := range hashes {
+		slow := image.NewNRGBA(image.Rect(0, 0, 12, 9))
+		if err := slowDecode(slow, h, 1); err != nil {
+			t.Fatal(err)
+		}
+
+		want[i] = slow.Pix
+	}
+
+	got := make([][][]uint8, 8)
+
+	var wg sync.WaitGroup
+
+	for g := range got {
+		got[g] = make([][]uint8, len(hashes))
+
+		wg.Go(func() {
+			for _, i := range rand.New(rand.NewPCG(uint64(g), 1)).Perm(len(hashes)) {
+				img := image.NewNRGBA(image.Rect(0, 0, 12, 9))
+				if err := Draw(img, hashes[i], 1); err != nil {
+					t.Error(err)
+
+					return
+				}
+
+				got[g][i] = img.Pix
+			}
+		})
+	}
+
+	wg.Wait()
+
+	for g := range got {
+		for i := range hashes {
+			if !slices.Equal(got[g][i], want[i]) {
+				t.Errorf("goroutine %d, %s: differs from slowDecode", g, hashes[i])
+			}
+		}
+	}
+}
 
 func FuzzDecode(f *testing.F) {
 	// The usual example, the smallest hash, the 9x9 size digit with too few
@@ -35,6 +153,31 @@ func FuzzDecode(f *testing.F) {
 			return
 		}
 
+		slow := image.NewNRGBA(dst.Rect)
+		_ = slowDecode(slow, hash, punch)
+
+		// A difference is allowed only where the slow value is within
+		// decodeBound of a byte boundary.
+		var c [81][3]float64
+
+		nx, ny, _ := colours(&c, hash, punch)
+		bound := decodeBound(c[:nx*ny])
+
+		for i := range dst.Pix {
+			if dst.Pix[i] == slow.Pix[i] {
+				continue
+			}
+
+			x, y, ch := i/4%width, i/4/width, i%4
+			v := slowPixel(c[:nx*ny], nx, width, height, x, y, ch)
+			e := bound[ch]
+
+			if q := toSRGB(v); toSRGB(v-e) == q && toSRGB(v+e) == q {
+				t.Fatalf("%q, punch %v: (%d, %d) channel %d is %d, slow %d; %v is %g or more from a boundary",
+					hash, punch, x, y, ch, dst.Pix[i], slow.Pix[i], v, e)
+			}
+		}
+
 		x, y, _ := Components(hash)
 
 		again := Encode(x, y, img)
@@ -43,6 +186,64 @@ func FuzzDecode(f *testing.F) {
 			t.Fatalf("%q re-encodes to %q, with components %d, %d, %v", hash, again, ax, ay, err)
 		}
 	})
+}
+
+// slowDecode draws hash into dst the plain way, which the Decoder is checked
+// against: each pixel summed straight from the formula, component by
+// component, rather than in two passes.
+func slowDecode(dst draw.Image, hash string, punch float64) error {
+	var c [81][3]float64
+
+	nx, ny, err := colours(&c, hash, punch)
+	if err != nil {
+		return err
+	}
+
+	b := dst.Bounds()
+	w, h := b.Dx(), b.Dy()
+	cosX := cosines(nx, w)
+	cosY := cosines(ny, h)
+
+	for y := range h {
+		for x := range w {
+			var sum [3]float64
+
+			for j := range ny {
+				for i := range nx {
+					basis := cosX[i][x] * cosY[j][y]
+
+					for ch, v := range c[j*nx+i] {
+						// The product is rounded before it is added, so no target fuses the two.
+						sum[ch] += float64(v * basis)
+					}
+				}
+			}
+
+			r, g, bl := toSRGB(sum[0]), toSRGB(sum[1]), toSRGB(sum[2])
+			dst.Set(b.Min.X+x, b.Min.Y+y, color.NRGBA{uint8(r), uint8(g), uint8(bl), 255})
+		}
+	}
+
+	return nil
+}
+
+// decodeBound is how far the Decoder's sums may lie from slowDecode's, per
+// channel: 1e-12 times the channel's sum of absolute component values, about
+// seven times the largest rounding gap the two orders allow at 9x9.
+func decodeBound(c [][3]float64) [3]float64 {
+	var out [3]float64
+
+	for _, v := range c {
+		for ch := range out {
+			out[ch] += math.Abs(v[ch])
+		}
+	}
+
+	for ch := range out {
+		out[ch] *= 1e-12
+	}
+
+	return out
 }
 
 // TestDecodeHugePunch checks that a punch large enough to overflow the sums
@@ -60,4 +261,17 @@ func TestDecodeHugePunch(t *testing.T) {
 			}
 		}
 	}
+}
+
+// slowPixel returns channel ch of the pixel at (x, y) of a w by h image,
+// adding each component's colour times its two cosines in index order.
+func slowPixel(c [][3]float64, nx, w, h, x, y, ch int) float64 {
+	var sum float64
+
+	for k, v := range c {
+		basis := cosine(k%nx, x, w) * cosine(k/nx, y, h)
+		sum += float64(v[ch] * basis)
+	}
+
+	return sum
 }

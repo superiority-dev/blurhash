@@ -47,3 +47,34 @@ func newImage(width, height int) (*image.NRGBA, error) {
 
 	return image.NewNRGBA(image.Rect(0, 0, width, height)), nil
 }
+
+// A Decoder decodes BlurHashes and reuses its memory between calls. The zero
+// value is ready to use. A Decoder should be used by one goroutine at a time;
+// [Decode] and [DecodeDraw] are safe for concurrent use.
+type Decoder struct {
+	d codec.Decoder
+}
+
+// NewDecoder returns a Decoder.
+func NewDecoder() *Decoder {
+	return new(Decoder)
+}
+
+// Decode returns hash drawn as a width by height image, as [Decode] does.
+func (d *Decoder) Decode(hash string, width, height int, punch float64) (*image.NRGBA, error) {
+	img, err := newImage(width, height)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := d.d.Draw(img, hash, punch); err != nil {
+		return nil, err
+	}
+
+	return img, nil
+}
+
+// DecodeDraw decodes hash into dst, as [DecodeDraw] does.
+func (d *Decoder) DecodeDraw(dst draw.Image, hash string, punch float64) error {
+	return d.d.Draw(dst, hash, punch)
+}

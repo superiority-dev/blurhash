@@ -2,9 +2,10 @@ package codec
 
 import (
 	"fmt"
-	"image/color"
+	"image"
 	"image/draw"
 	"math"
+	"sync"
 )
 
 // Components returns the numbers of horizontal and vertical components
@@ -78,41 +79,90 @@ func unquantise(q int, amplitude float64) float64 {
 	return v * math.Abs(v) * amplitude
 }
 
-// Draw decodes hash into dst, filling its bounds, with the components'
-// contrast scaled by punch: each pixel summed straight from the formula,
-// component by component. It is safe for concurrent use.
-func Draw(dst draw.Image, hash string, punch float64) error {
-	var c [81][3]float64
+// decoders holds the Decoders behind Draw.
+var decoders = sync.Pool{New: func() any { return new(Decoder) }}
 
-	nx, ny, err := colours(&c, hash, punch)
+// Draw decodes hash into dst, filling its bounds, with the components'
+// contrast scaled by punch, using a Decoder from a pool. It is safe for
+// concurrent use.
+func Draw(dst draw.Image, hash string, punch float64) error {
+	d := decoders.Get().(*Decoder)
+	defer decoders.Put(d)
+
+	return d.Draw(dst, hash, punch)
+}
+
+// A Decoder decodes BlurHashes and keeps its cosine tables between calls. The
+// zero value is ready to use. A Decoder is not safe for concurrent use.
+type Decoder struct {
+	colours [81][3]float64
+	rows    [2][9][3]float64
+	tables  cache
+}
+
+// Draw decodes hash into dst, filling its bounds, with the components'
+// contrast scaled by punch.
+func (d *Decoder) Draw(dst draw.Image, hash string, punch float64) error {
+	nx, ny, err := colours(&d.colours, hash, punch)
 	if err != nil {
 		return err
 	}
 
 	b := dst.Bounds()
+	if b.Empty() {
+		return nil
+	}
+
 	w, h := b.Dx(), b.Dy()
-	cosX := cosines(nx, w)
-	cosY := cosines(ny, h)
 
-	for y := range h {
-		for x := range w {
-			var sum [3]float64
+	p := painter{dst: dst, b: b}
 
-			for j := range ny {
-				for i := range nx {
-					basis := cosX[i][x] * cosY[j][y]
+	switch dst := dst.(type) {
+	case *image.NRGBA:
+		p.pix, p.stride = dst.Pix[dst.PixOffset(b.Min.X, b.Min.Y):], dst.Stride
+	case *image.RGBA:
+		p.pix, p.stride = dst.Pix[dst.PixOffset(b.Min.X, b.Min.Y):], dst.Stride
+	}
 
-					for ch, v := range c[j*nx+i] {
-						// The product is rounded before it is added, so no target fuses the two.
-						sum[ch] += float64(v * basis)
-					}
-				}
-			}
+	cosX := d.tables.get(w, nx)
+	cosY := d.tables.get(h, ny)
 
-			r, g, bl := toSRGB(sum[0]), toSRGB(sum[1]), toSRGB(sum[2])
-			dst.Set(b.Min.X+x, b.Min.Y+y, color.NRGBA{uint8(r), uint8(g), uint8(bl), 255})
+	// Rows y and h-y share the products of each vertical component; odd
+	// components change sign between them.
+	for y := 0; 2*y <= h; y++ {
+		d.sumRows(nx, ny, cosY, y)
+		p.drawRow(cosX, d.rows[0][:nx], y)
+
+		if y > 0 && 2*y != h {
+			p.drawRow(cosX, d.rows[1][:nx], h-y)
 		}
 	}
 
 	return nil
+}
+
+// sumRows sets d.rows[0] to the horizontal component values of row y and
+// d.rows[1] to those of row h-y.
+func (d *Decoder) sumRows(nx, ny int, cosY [][]float64, y int) {
+	for i := range nx {
+		var er, eg, eb, or, og, ob float64
+
+		for j := 0; j < ny; j += 2 {
+			cy, v := cosY[j][y], d.colours[j*nx+i]
+			// Each product is rounded before it is added, so no target fuses the two.
+			er += float64(cy * v[0])
+			eg += float64(cy * v[1])
+			eb += float64(cy * v[2])
+		}
+
+		for j := 1; j < ny; j += 2 {
+			cy, v := cosY[j][y], d.colours[j*nx+i]
+			or += float64(cy * v[0])
+			og += float64(cy * v[1])
+			ob += float64(cy * v[2])
+		}
+
+		d.rows[0][i] = [3]float64{er + or, eg + og, eb + ob}
+		d.rows[1][i] = [3]float64{er - or, eg - og, eb - ob}
+	}
 }
