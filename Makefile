@@ -9,8 +9,9 @@ GOVULNCHECK   ?= go run golang.org/x/vuln/cmd/govulncheck@v1.9.0
 check: fmt vet lint test vuln fma
 
 fmt:
-	@dirs=$$(go list -f '{{.Dir}}' ./...); \
-	out=$$(gofmt -l $$dirs); if [ -n "$$out" ]; then echo "gofmt:"; echo "$$out"; exit 1; fi
+	@files=$$(go list -f '{{$$d:=.Dir}}{{range .GoFiles}}{{$$d}}/{{.}}{{"\n"}}{{end}}{{range .TestGoFiles}}{{$$d}}/{{.}}{{"\n"}}{{end}}{{range .XTestGoFiles}}{{$$d}}/{{.}}{{"\n"}}{{end}}{{range .IgnoredGoFiles}}{{$$d}}/{{.}}{{"\n"}}{{end}}' ./...); \
+	if [ -z "$$files" ]; then echo "gofmt: go list found no Go files"; exit 1; fi; \
+	out=$$(gofmt -l $$files); if [ -n "$$out" ]; then echo "gofmt:"; echo "$$out"; exit 1; fi
 
 vet:
 	go vet ./...
