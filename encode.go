@@ -21,9 +21,10 @@ func Encode(xComponents, yComponents int, img image.Image) (string, error) {
 	return codec.Encode(xComponents, yComponents, img), nil
 }
 
-// An Encoder computes BlurHashes and reuses its memory between calls. The zero
-// value is ready to use. An Encoder should be used by one goroutine at a time;
-// [Encode] is safe for concurrent use.
+// An Encoder computes BlurHashes and reuses its memory between calls, so that
+// encoding a stream of images allocates only the hashes. The zero value is
+// ready to use. An Encoder should be used by one goroutine at a time; [Encode]
+// is safe for concurrent use.
 type Encoder struct {
 	e codec.Encoder
 }

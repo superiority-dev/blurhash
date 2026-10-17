@@ -78,3 +78,71 @@ func TestEncodeComparison(t *testing.T) {
 
 	testimage.Golden(t, testdata, "testdata/differences.txt", got, *update)
 }
+
+func TestEncodeAllocs(t *testing.T) {
+	// One image for each pixel format Encode reads directly.
+	images := []image.Image{
+		testimage.Random(1, 32, 24, 256),
+		image.NewRGBA(image.Rect(0, 0, 32, 24)),
+		image.NewYCbCr(image.Rect(0, 0, 32, 24), image.YCbCrSubsampleRatio420),
+	}
+
+	for _, img := range images {
+		var e Encoder
+
+		if n := testing.AllocsPerRun(100, func() { _, _ = e.Encode(4, 4, img) }); n != 1 {
+			t.Errorf("%T: Encoder.Encode allocates %v times, want 1", img, n)
+		}
+
+		if raceEnabled {
+			continue
+		}
+
+		if n := testing.AllocsPerRun(100, func() { _, _ = Encode(4, 4, img) }); n != 1 {
+			t.Errorf("%T: Encode allocates %v times, want 1", img, n)
+		}
+	}
+}
+
+// Encode reads YCbCr planes directly, so it must panic wherever At does
+// instead of reading a byte outside the image: on the chroma planes
+// NewYCbCr makes too small, and on planes one byte short with that byte
+// still in capacity.
+func TestEncodeYCbCrPanics(t *testing.T) {
+	shortY := image.NewYCbCr(image.Rect(0, 0, 8, 4), image.YCbCrSubsampleRatio444)
+	shortY.Y = shortY.Y[:len(shortY.Y)-1]
+
+	shortCr := image.NewYCbCr(image.Rect(0, 0, 8, 4), image.YCbCrSubsampleRatio420)
+	shortCr.Cr = shortCr.Cr[:len(shortCr.Cr)-1]
+
+	for _, img := range []*image.YCbCr{
+		// Odd negative origins, where NewYCbCr's chroma planes come out too small.
+		image.NewYCbCr(image.Rect(-9, -9, 0, -8), image.YCbCrSubsampleRatio422),
+		image.NewYCbCr(image.Rect(-9, -9, -8, 0), image.YCbCrSubsampleRatio420),
+		image.NewYCbCr(image.Rect(-9, -9, -8, 0), image.YCbCrSubsampleRatio440),
+		image.NewYCbCr(image.Rect(-9, -9, -2, -8), image.YCbCrSubsampleRatio411),
+		image.NewYCbCr(image.Rect(-9, -9, -8, 0), image.YCbCrSubsampleRatio410),
+		shortY,
+		shortCr,
+	} {
+		at := panics(func() {
+			for y := img.Rect.Min.Y; y < img.Rect.Max.Y; y++ {
+				for x := img.Rect.Min.X; x < img.Rect.Max.X; x++ {
+					img.At(x, y)
+				}
+			}
+		})
+
+		if enc := panics(func() { _, _ = Encode(1, 1, img) }); !at || !enc {
+			t.Errorf("%v %v: At panics %v, Encode panics %v; want both",
+				img.SubsampleRatio, img.Rect, at, enc)
+		}
+	}
+}
+
+func panics(f func()) (p bool) {
+	defer func() { p = recover() != nil }()
+	f()
+
+	return false
+}
