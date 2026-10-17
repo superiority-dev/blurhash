@@ -9,7 +9,8 @@ GOVULNCHECK   ?= go run golang.org/x/vuln/cmd/govulncheck@v1.9.0
 check: fmt vet lint test vuln fma
 
 fmt:
-	@out=$$(gofmt -l $$(go list -f '{{.Dir}}' ./...)); if [ -n "$$out" ]; then echo "gofmt:"; echo "$$out"; exit 1; fi
+	@dirs=$$(go list -f '{{.Dir}}' ./...); \
+	out=$$(gofmt -l $$dirs); if [ -n "$$out" ]; then echo "gofmt:"; echo "$$out"; exit 1; fi
 
 vet:
 	go vet ./...
@@ -18,6 +19,7 @@ lint:
 	$(GOLANGCI_LINT) run ./...
 
 test:
+	go test ./...
 	go test -race ./...
 
 vuln:
