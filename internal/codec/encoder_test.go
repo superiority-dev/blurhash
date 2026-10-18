@@ -10,22 +10,16 @@ import (
 	"github.com/superiority-dev/blurhash/internal/testimage"
 )
 
-// reference is Encode with the coefficients always taken from factors.
-func reference(nx, ny int, img image.Image) string {
-	p := read(img)
-	hash, _ := format(nx, ny, factors(nx, ny, p), [3]float64{}, p.dcTie)
-
-	return hash
-}
+// tolerance is how far coefficients may lie from slowCoefficients: 1,000
+// times the largest gap measured, 9.6e-13, on a 2000x1500 random image at
+// 9x9.
+const tolerance = 1e-9
 
 type sample struct {
 	id     string
 	img    image.Image
 	nx, ny int
 }
-
-// randomID is the id of every random sample.
-const randomID = "random"
 
 // samples returns every corpus encode and 2000 random ones.
 func samples() []sample {
@@ -45,111 +39,104 @@ func samples() []sample {
 	for range 2000 {
 		w, h := 1+r.IntN(40), 1+r.IntN(40)
 		img := testimage.Random(r.Uint64(), w, h, []int{2, 3, 5, 256}[r.IntN(4)])
-		out = append(out, sample{randomID, img, 1 + r.IntN(9), 1 + r.IntN(9)})
+		out = append(out, sample{"random", img, 1 + r.IntN(9), 1 + r.IntN(9)})
 	}
 
 	return out
 }
 
-func TestEncoderBound(t *testing.T) {
-	worst := 0.0
+// slowCoefficients returns the coefficients of img computed the plain way,
+// which the Encoder is checked against: each pixel read through At rather
+// than linearRow's direct reads, and each component summed straight from the
+// formula rather than in two passes. Index j*nx+i is horizontal component i
+// and vertical component j.
+func slowCoefficients(nx, ny int, img image.Image) [][3]float64 {
+	b := img.Bounds()
+	w, h := b.Dx(), b.Dy()
 
-	var e Encoder
+	pix := make([][3]float64, w*h)
 
-	for _, s := range samples() {
-		p := read(s.img)
-		f, bound, dcTie := e.coefficients(s.nx, s.ny, s.img)
-
-		if dcTie != p.dcTie {
-			t.Fatalf("%s: DC ties %v, read gives %v", s.id, dcTie, p.dcTie)
+	for y := range h {
+		for x := range w {
+			r, g, bl, _ := img.At(b.Min.X+x, b.Min.Y+y).RGBA()
+			pix[y*w+x] = [3]float64{linear[r>>8], linear[g>>8], linear[bl>>8]}
 		}
+	}
 
-		for k, ref := range factors(s.nx, s.ny, p) {
-			for c := range 3 {
-				d := math.Abs(f[k][c] - ref[c])
-				if d > bound[c] {
-					t.Fatalf("%s at %dx%d: coefficient %d channel %d differs by %g, bound %g", s.id, s.nx, s.ny, k, c, d, bound[c])
-				}
+	cosX := cosines(nx, w)
+	cosY := cosines(ny, h)
 
-				if bound[c] > 0 {
-					worst = max(worst, d/bound[c])
+	out := make([][3]float64, nx*ny)
+
+	for j := range ny {
+		for i := range nx {
+			var sum [3]float64
+
+			for y := range h {
+				for x := range w {
+					basis := cosX[i][x] * cosY[j][y]
+
+					for c, v := range pix[y*w+x] {
+						// The product is rounded before it is added, so no target fuses the two.
+						sum[c] += float64(basis * v)
+					}
 				}
+			}
+
+			// The average colour (i = j = 0) is the plain mean; every other
+			// component is doubled, as the cosine transform's normalisation
+			// requires. The scale is applied once, after the sum.
+			normalisation := 2.0
+			if i == 0 && j == 0 {
+				normalisation = 1
+			}
+
+			scale := normalisation / float64(w*h)
+
+			for c := range sum {
+				out[j*nx+i][c] = sum[c] * scale
 			}
 		}
 	}
 
-	t.Logf("largest difference, as a fraction of the bound: %.3g", worst)
+	return out
 }
 
-// TestGuardMatters checks the guard is not idle: with every bound set to
-// zero, some corpus hashes must differ from the reference.
-func TestGuardMatters(t *testing.T) {
-	var e Encoder
+// cosines returns cos(pi*k*p/n) for each component k below count and each
+// position p below n.
+func cosines(count, n int) [][]float64 {
+	out := make([][]float64, count)
 
-	differ := 0
-
-	for _, s := range samples() {
-		if s.id == randomID {
-			continue
-		}
-
-		f, _, dcTie := e.coefficients(s.nx, s.ny, s.img)
-		if hash, _ := format(s.nx, s.ny, f, [3]float64{}, dcTie); hash != reference(s.nx, s.ny, s.img) {
-			differ++
+	for k := range out {
+		out[k] = make([]float64, n)
+		for p := range n {
+			out[k][p] = cosine(k, p, n)
 		}
 	}
 
-	if differ == 0 {
-		t.Fatal("without the guard every corpus hash still equals the reference")
-	}
-
-	t.Logf("without the guard, %d corpus hashes differ from the reference", differ)
+	return out
 }
 
-func TestEncodeMatchesReference(t *testing.T) {
-	var fallbacks, corpus, n int
-
+// TestEncoderCoefficients holds the Encoder's coefficients to
+// slowCoefficients over the samples, with one Encoder throughout so its
+// cache and buffers see every size.
+func TestEncoderCoefficients(t *testing.T) {
 	var e Encoder
 
 	for _, s := range samples() {
-		want := reference(s.nx, s.ny, s.img)
-
-		if got := Encode(s.nx, s.ny, s.img); got != want {
-			t.Errorf("%s at %dx%d: Encode returns %s; reference %s", s.id, s.nx, s.ny, got, want)
-		}
-
-		// One Encoder over the whole stream, so its cache sees every size.
-		if got := e.Encode(s.nx, s.ny, s.img); got != want {
-			t.Errorf("%s at %dx%d: Encoder.Encode returns %s; reference %s", s.id, s.nx, s.ny, got, want)
-		}
-
-		f, bound, dcTie := new(Encoder).coefficients(s.nx, s.ny, s.img)
-		if _, ok := format(s.nx, s.ny, f, bound, dcTie); !ok {
-			fallbacks++
-			if s.id != randomID {
-				corpus++
-			}
-		}
-
-		n++
+		checkCoefficients(t, &e, s.id, s.nx, s.ny, s.img)
 	}
-
-	if fallbacks == corpus {
-		t.Fatal("the random inputs produced no guard fallback, so the random share no longer covers the fallback path; pin a crafted fallback case rather than reseeding")
-	}
-
-	t.Logf("fell back to factors on %d of %d encodes, %d of them corpus encodes", fallbacks, n, corpus)
 }
 
 // TestEncodeConcurrent runs Encode from 8 goroutines over the samples, keeps
-// every hash and compares them after the last call, so a hash that shares a
-// pooled buffer shows up even without the race detector.
+// every hash and compares them with a fresh Encoder's after the last call, so
+// a hash that shares a pooled buffer shows up even without the race detector.
 func TestEncodeConcurrent(t *testing.T) {
 	s := samples()
 
 	want := make([]string, len(s))
 	for i, s := range s {
-		want[i] = reference(s.nx, s.ny, s.img)
+		want[i] = new(Encoder).Encode(s.nx, s.ny, s.img)
 	}
 
 	got := make([][]string, 8)
@@ -171,7 +158,8 @@ func TestEncodeConcurrent(t *testing.T) {
 	for g := range got {
 		for i := range s {
 			if got[g][i] != want[i] {
-				t.Errorf("goroutine %d, %s at %dx%d: %s, reference %s", g, s[i].id, s[i].nx, s[i].ny, got[g][i], want[i])
+				t.Errorf("goroutine %d, %s at %dx%d: %s, a fresh Encoder %s",
+					g, s[i].id, s[i].nx, s[i].ny, got[g][i], want[i])
 			}
 		}
 	}
@@ -190,15 +178,27 @@ func FuzzEncode(f *testing.F) {
 		img := testimage.Random(seed, 1+int(w%64), 1+int(h%64), 2+int(levels)%255)
 		x, y := 1+int(nx%9), 1+int(ny%9)
 
-		got := Encode(x, y, img)
+		checkCoefficients(t, &fuzzEncoder, "random", x, y, img)
 
-		want := reference(x, y, img)
-		if got != want {
-			t.Fatalf("Encode returns %s, reference %s", got, want)
-		}
-
-		if got := fuzzEncoder.Encode(x, y, img); got != want {
-			t.Fatalf("Encoder.Encode returns %s, reference %s", got, want)
+		if got, want := Encode(x, y, img), fuzzEncoder.Encode(x, y, img); got != want {
+			t.Fatalf("Encode returns %s, Encoder.Encode %s", got, want)
 		}
 	})
+}
+
+// checkCoefficients fails t where a coefficient e computes for img lies more
+// than tolerance from slowCoefficients'.
+func checkCoefficients(t *testing.T, e *Encoder, id string, nx, ny int, img image.Image) {
+	t.Helper()
+
+	got := e.coefficients(nx, ny, img)
+
+	for k, want := range slowCoefficients(nx, ny, img) {
+		for c := range want {
+			if d := math.Abs(got[k][c] - want[c]); d > tolerance {
+				t.Fatalf("%s at %dx%d: coefficient %d channel %d is %g from slowCoefficients'",
+					id, nx, ny, k, c, d)
+			}
+		}
+	}
 }

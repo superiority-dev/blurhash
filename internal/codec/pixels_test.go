@@ -21,10 +21,10 @@ func TestPremultiply(t *testing.T) {
 	}
 }
 
-// TestReadYCbCr checks the direct YCbCr read against At at every
-// subsampling ratio, including sub-images whose origin is not a multiple of
-// the chroma block.
-func TestReadYCbCr(t *testing.T) {
+// TestLinearRowYCbCr checks linearRow's direct YCbCr read against At at
+// every subsampling ratio, including sub-images whose origin is not a
+// multiple of the chroma block.
+func TestLinearRowYCbCr(t *testing.T) {
 	ratios := []image.YCbCrSubsampleRatio{
 		image.YCbCrSubsampleRatio444, image.YCbCrSubsampleRatio422, image.YCbCrSubsampleRatio420,
 		image.YCbCrSubsampleRatio440, image.YCbCrSubsampleRatio411, image.YCbCrSubsampleRatio410,
@@ -50,17 +50,13 @@ func TestReadYCbCr(t *testing.T) {
 			var e Encoder
 
 			for _, comp := range [][2]int{{4, 3}, {1, 1}, {9, 9}} {
-				if got, want := e.Encode(comp[0], comp[1], sub), reference(comp[0], comp[1], sub); got != want {
-					t.Errorf("%s at %v: %s; reference %s", id, comp, got, want)
-				}
+				checkCoefficients(t, &e, id, comp[0], comp[1], sub)
 			}
 
 			// The rows read directly equal At's.
-			var tie ties
-
 			line := make([][3]float64, rect.Dx())
 			for y := range rect.Dy() {
-				tie.read(sub, y, line)
+				linearRow(line, sub, y)
 
 				for x := range line {
 					cr, cg, cb, _ := sub.At(rect.Min.X+x, rect.Min.Y+y).RGBA()

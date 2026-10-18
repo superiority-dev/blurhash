@@ -1,6 +1,11 @@
 package codec
 
-import "slices"
+import (
+	"math"
+	"slices"
+
+	"github.com/superiority-dev/blurhash/internal/fdlibm"
+)
 
 // cache keeps the cosine tables of the dimensions encoded most recently, so
 // a stream of images in a few sizes builds each table once.
@@ -74,4 +79,9 @@ func (c *cache) get(n, count int) [][]float64 {
 // floats returns the number of float64s t holds.
 func (t table) floats() int {
 	return len(t.cos) * (t.n/2 + 1)
+}
+
+// cosine returns cos(pi*k*p/n), the basis value every table holds.
+func cosine(k, p, n int) float64 {
+	return fdlibm.Cos(math.Pi * float64(k) * float64(p) / float64(n))
 }

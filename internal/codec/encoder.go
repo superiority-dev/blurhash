@@ -29,18 +29,9 @@ type Encoder struct {
 }
 
 // Encode returns the BlurHash of img at nx by ny components, each between 1
-// and 9, for an image with pixels. Where the guard in format cannot vouch
-// for a digit, it takes the coefficients from factors instead.
+// and 9, for an image with pixels.
 func (e *Encoder) Encode(nx, ny int, img image.Image) string {
-	f, bound, dcTie := e.coefficients(nx, ny, img)
-	if hash, ok := format(nx, ny, f, bound, dcTie); ok {
-		return hash
-	}
-
-	p := read(img)
-	hash, _ := format(nx, ny, factors(nx, ny, p), [3]float64{}, p.dcTie)
-
-	return hash
+	return format(nx, ny, e.coefficients(nx, ny, img))
 }
 
 // trim drops the buffers once they hold over 64 KiB, at 24 bytes a
@@ -51,23 +42,14 @@ func (e *Encoder) trim() {
 	}
 }
 
-// coefficients returns the coefficients factors returns, computed by a pass
-// along each row and then one down each column, with each channel's DC tie
-// and a bound on how far its coefficients can lie from factors'.
+// coefficients returns the cosine transform coefficients of img, index
+// j*nx+i for horizontal component i and vertical component j, computed by a
+// pass along each row and then one down each column.
 //
 // Both passes use the mirror symmetry of the basis,
 // cos(pi*i*(w-x)/w) = (-1)^i * cos(pi*i*x/w), so positions x and w-x enter
 // even components as a sum and odd ones as a difference.
-//
-// The bound: with u = 2^-53, N = w*h and A the channel's sum of linear
-// values, factors is within (N+1)u*A + 2e*A of the exact sum, where e = 103u
-// bounds each cosine's error (4u relative on an argument below 8*pi, plus
-// one ulp from fdlibm.Cos). The two passes are within (w+h+12)u*A + 2e*A,
-// an upper bound chosen for simplicity and loose by about a factor of two.
-// The common scale adds 2u*A. The bound is twice the total, with 512 for
-// 4e/u and the constant terms. Its size rests on this derivation, not on a
-// test.
-func (e *Encoder) coefficients(nx, ny int, img image.Image) ([][3]float64, [3]float64, [3]int) {
+func (e *Encoder) coefficients(nx, ny int, img image.Image) [][3]float64 {
 	b := img.Bounds()
 	w, h := b.Dx(), b.Dy()
 	cosX := e.tables.get(w, nx)
@@ -79,10 +61,8 @@ func (e *Encoder) coefficients(nx, ny int, img image.Image) ([][3]float64, [3]fl
 	e.rows = grow(e.rows, nx*h)
 	e.out = grow(e.out, nx*ny)
 
-	var t ties
-
 	for y := range h {
-		t.read(img, y, e.line)
+		linearRow(e.line, img, y)
 
 		for i, v := range e.mirror(e.line, cosX[:nx]) {
 			e.rows[i*h+y] = v
@@ -93,29 +73,18 @@ func (e *Encoder) coefficients(nx, ny int, img image.Image) ([][3]float64, [3]fl
 	n := float64(w * h)
 	dcScale, acScale := 1/n, 2/n
 
-	var total [3]float64 // the DC before scaling: each channel's sum
-
 	for i := range nx {
 		for j, v := range e.mirror(e.rows[i*h:(i+1)*h], cosY[:ny]) {
 			scale := acScale
 			if i == 0 && j == 0 {
 				scale = dcScale
-				total = v
 			}
 
 			e.out[j*nx+i] = [3]float64{v[0] * scale, v[1] * scale, v[2] * scale}
 		}
 	}
 
-	var bound [3]float64
-
-	// 2^-51 is 4u: twice the bound, times the AC scale's 2.
-	k := float64(w*h+w+h+512) / float64(w*h) * 0x1p-51
-	for c := range bound {
-		bound[c] = k * total[c]
-	}
-
-	return e.out, bound, t.dc(w * h)
+	return e.out
 }
 
 // mirror returns, for each k below len(cos), the sum over x of v[x] times

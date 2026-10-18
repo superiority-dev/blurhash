@@ -33,36 +33,22 @@ func TestCoefficientBits(t *testing.T) {
 	testimage.Golden(t, testdata, "testdata/coefficients.txt", lines, *update)
 }
 
-// coefficientDigest returns the SHA-256 of the DC ties of c and, at each of
-// its component counts, every coefficient from factors and from an Encoder,
-// and the Encoder's bounds.
+// coefficientDigest returns the SHA-256 of every coefficient from
+// slowCoefficients and from an Encoder, at each of c's component counts.
 func coefficientDigest(c testimage.Case) string {
 	img := c.Image()
-	p := read(img)
 	h := sha256.New()
 
-	for _, d := range p.dcTie {
-		_, _ = h.Write(binary.BigEndian.AppendUint64(nil, uint64(int64(d))))
-	}
-
-	write := func(v float64) { _, _ = h.Write(binary.BigEndian.AppendUint64(nil, math.Float64bits(v))) }
-
 	for _, comp := range c.Components {
-		for _, f := range factors(comp.X, comp.Y, p) {
-			for _, v := range f {
-				write(v)
-			}
-		}
+		slow := slowCoefficients(comp.X, comp.Y, img)
+		fast := new(Encoder).coefficients(comp.X, comp.Y, img)
 
-		f, bound, _ := new(Encoder).coefficients(comp.X, comp.Y, img)
-		for _, v := range f {
-			for _, v := range v {
-				write(v)
+		for _, f := range [][][3]float64{slow, fast} {
+			for _, rgb := range f {
+				for _, v := range rgb {
+					_, _ = h.Write(binary.BigEndian.AppendUint64(nil, math.Float64bits(v)))
+				}
 			}
-		}
-
-		for _, v := range bound {
-			write(v)
 		}
 	}
 
