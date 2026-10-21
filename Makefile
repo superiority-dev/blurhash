@@ -4,6 +4,8 @@ SHELL := /bin/bash
 GOLANGCI_LINT ?= go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0
 GOVULNCHECK   ?= go run golang.org/x/vuln/cmd/govulncheck@v1.9.0
 
+RACE ?= 1
+
 .PHONY: check fmt vet lint test vuln fma
 
 check: fmt vet lint test vuln fma
@@ -21,7 +23,11 @@ lint:
 
 test:
 	go test ./...
+ifneq ($(RACE),0)
 	go test -race ./...
+else
+	@echo "test: -race skipped (RACE=0)"
+endif
 
 vuln:
 	$(GOVULNCHECK) ./...

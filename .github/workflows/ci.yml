@@ -1,0 +1,48 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: |
+            go.mod
+            Makefile
+
+      - name: Check that the race detector starts
+        id: race
+        run: |
+          if out=$(go test -race -count=1 -run '^$' . 2>&1); then
+            echo "run=1" >> "$GITHUB_OUTPUT"
+          elif grep -q 'unsupported VMA range' <<< "$out"; then
+            echo "::warning::the race detector cannot start on ${{ matrix.runner }}, so make check skips the -race run"
+            echo "run=0" >> "$GITHUB_OUTPUT"
+          else
+            echo "$out"
+            exit 1
+          fi
+
+      - run: make check RACE=${{ steps.race.outputs.run }}
