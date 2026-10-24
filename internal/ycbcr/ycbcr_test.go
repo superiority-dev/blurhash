@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-// TestRGB holds RGB to color.YCbCr's RGBA method on every input.
+// TestRGB requires RGB to match color.YCbCr's RGBA method on every input.
 func TestRGB(t *testing.T) {
 	for i := range 1 << 24 {
 		y, cb, cr := uint8(i>>16), uint8(i>>8), uint8(i)

@@ -11,21 +11,21 @@ var comparison string
 
 // Result is one line of comparison.txt.
 type Result struct {
-	ID         string
-	Components Components
+	id         string
+	components Components
 	Hash       string
 }
 
 // Comparison is a parsed comparison.txt.
 type Comparison struct {
-	Header  []string
+	header  []string
 	Results []Result
 }
 
-// Value returns the rest of the header line starting with key, or "" if
+// value returns the rest of the header line starting with key, or "" if
 // there is none.
-func (c Comparison) Value(key string) string {
-	for _, h := range c.Header {
+func (c Comparison) value(key string) string {
+	for _, h := range c.header {
 		if v, ok := strings.CutPrefix(h, key+" "); ok {
 			return v
 		}
@@ -57,14 +57,14 @@ func Comparisons() (Comparison, error) {
 
 	for n, line := range strings.Split(strings.TrimSuffix(comparison, "\n"), "\n") {
 		if h, ok := strings.CutPrefix(line, "# "); ok {
-			c.Header = append(c.Header, h)
+			c.header = append(c.header, h)
 
 			continue
 		}
 
 		var r Result
 
-		_, err := fmt.Sscanf(line, "%s %dx%d %s", &r.ID, &r.Components.X, &r.Components.Y, &r.Hash)
+		_, err := fmt.Sscanf(line, "%s %dx%d %s", &r.id, &r.components.X, &r.components.Y, &r.Hash)
 		if err != nil {
 			return Comparison{}, fmt.Errorf("line %d: %w", n+1, err)
 		}

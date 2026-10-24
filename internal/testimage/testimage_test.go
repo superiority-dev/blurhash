@@ -8,7 +8,7 @@ func TestComparisonMatchesCases(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if got, want := Fingerprint(), file.Value("fingerprint"); got != want {
+	if got, want := fingerprint(), file.value("fingerprint"); got != want {
 		t.Fatalf("images have fingerprint %s, comparison.txt was made from %s, so it is out of date", got, want)
 	}
 
@@ -20,8 +20,8 @@ func TestComparisonMatchesCases(t *testing.T) {
 				t.Fatalf("comparison.txt ends at %d results", n)
 			}
 
-			if r := file.Results[n]; r.ID != c.ID || r.Components != comp {
-				t.Fatalf("result %d is %s %v, want %s %v", n, r.ID, r.Components, c.ID, comp)
+			if r := file.Results[n]; r.id != c.ID || r.components != comp {
+				t.Fatalf("result %d is %s %v, want %s %v", n, r.id, r.components, c.ID, comp)
 			}
 
 			n++

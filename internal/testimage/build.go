@@ -5,21 +5,10 @@ import (
 	"image/color"
 )
 
-var kinds = []string{"nrgba", "gray", "ycbcr", "paletted", "rgba64", "cmyk", "custom"}
-
-type setter interface {
-	image.Image
-	Set(x, y int, c color.Color)
-}
-
-// custom hides an RGBA behind a type the encoder has no fast path for.
-type custom struct {
-	img *image.RGBA
-}
-
-func (c custom) ColorModel() color.Model { return color.RGBAModel }
-func (c custom) Bounds() image.Rectangle { return c.img.Bounds() }
-func (c custom) At(x, y int) color.Color { return c.img.At(x, y) }
+// The offset family tests images whose bounds do not start at (0, 0). Each is
+// cut from a bigger noise image: it starts at offsetMin, and the bigger image
+// extends offsetMargin past its right and bottom edges.
+var offsetMin, offsetMargin = image.Pt(5, 3), image.Pt(4, 4)
 
 func solid(s image.Point, v uint8) func() image.Image {
 	return func() image.Image { return fill(s, func(int, int) color.RGBA { return gray(v) }) }
@@ -28,21 +17,39 @@ func solid(s image.Point, v uint8) func() image.Image {
 // splitX gives the left half of s gray a and the right half gray b.
 func splitX(s image.Point, a, b uint8) func() image.Image {
 	return func() image.Image {
-		return fill(s, func(x, _ int) color.RGBA { return gray(pick(x < s.X/2, a, b)) })
+		return fill(s, func(x, _ int) color.RGBA {
+			if x < s.X/2 {
+				return gray(a)
+			}
+
+			return gray(b)
+		})
 	}
 }
 
 // splitY gives the top half of s gray a and the bottom half gray b.
 func splitY(s image.Point, a, b uint8) func() image.Image {
 	return func() image.Image {
-		return fill(s, func(_, y int) color.RGBA { return gray(pick(y < s.Y/2, a, b)) })
+		return fill(s, func(_, y int) color.RGBA {
+			if y < s.Y/2 {
+				return gray(a)
+			}
+
+			return gray(b)
+		})
 	}
 }
 
 // whiteRun makes the first n pixels of the top row white and the rest black.
 func whiteRun(s image.Point, n int) func() image.Image {
 	return func() image.Image {
-		return fill(s, func(x, y int) color.RGBA { return gray(pick(y == 0 && x < n, 255, 0)) })
+		return fill(s, func(x, y int) color.RGBA {
+			if y == 0 && x < n {
+				return gray(255)
+			}
+
+			return gray(0)
+		})
 	}
 }
 
@@ -68,113 +75,52 @@ func noisy(s image.Point, seed uint64) func() image.Image {
 }
 
 // typed is noise seeded by the size of s, in image type kind.
-func typed(kind string, s image.Point) func() image.Image {
+func typed(kind imageKind, s image.Point) func() image.Image {
 	return func() image.Image { return convert(kind, fill(s, noise(uint64(s.X*s.Y)))) }
 }
 
-func translucent(kind string, s image.Point) func() image.Image {
+func translucent(kind imageKind, s image.Point) func() image.Image {
 	return func() image.Image {
-		r := newSplitMix(0xa1fa)
+		r := newSplitMix(alphaSeed)
 		b := image.Rectangle{Max: s}
 
-		if kind == "nrgba" {
+		switch kind {
+		case kindNRGBA:
 			img := image.NewNRGBA(b)
 			for i := range img.Pix {
 				img.Pix[i] = r.byte()
 			}
 
 			return img
-		}
+		case kindRGBA:
+			img := image.NewRGBA(b)
 
-		img := image.NewRGBA(b)
+			for i := 0; i < len(img.Pix); i += 4 {
+				a := uint16(r.byte())
+				for c := range 3 {
+					img.Pix[i+c] = uint8(uint16(r.byte()) * a / 255)
+				}
 
-		for i := 0; i < len(img.Pix); i += 4 {
-			a := uint16(r.byte())
-			for c := range 3 {
-				img.Pix[i+c] = uint8(uint16(r.byte()) * a / 255)
+				img.Pix[i+3] = uint8(a)
 			}
 
-			img.Pix[i+3] = uint8(a)
+			return img
 		}
 
-		return img
+		panic("testimage: translucent images are rgba or nrgba")
 	}
 }
 
-// offset returns an opaque s sub-image whose bounds start at (5, 3).
-func offset(kind string, s image.Point) func() image.Image {
+// offset builds an opaque s-sized noise sub-image of the given kind.
+func offset(kind imageKind, s image.Point) func() image.Image {
 	return func() image.Image {
-		full := fill(image.Pt(s.X+9, s.Y+7), noise(0x0ff5e7))
-		sub := image.Rect(5, 3, 5+s.X, 3+s.Y)
+		sub := image.Rectangle{Min: offsetMin, Max: offsetMin.Add(s)}
+		full := convert(kind, fill(sub.Max.Add(offsetMargin), noise(offsetSeed)))
 
-		if kind == "nrgba" {
-			return convert("nrgba", full).(*image.NRGBA).SubImage(sub)
-		}
-
-		return full.SubImage(sub)
+		return full.(interface {
+			SubImage(image.Rectangle) image.Image
+		}).SubImage(sub)
 	}
-}
-
-func convert(kind string, src *image.RGBA) image.Image {
-	b := src.Bounds()
-
-	switch kind {
-	case "nrgba":
-		dst := image.NewNRGBA(b)
-		copy(dst.Pix, src.Pix)
-
-		return dst
-	case "gray":
-		return drawInto(image.NewGray(b), src)
-	case "ycbcr":
-		dst := image.NewYCbCr(b, image.YCbCrSubsampleRatio444)
-
-		for y := b.Min.Y; y < b.Max.Y; y++ {
-			for x := b.Min.X; x < b.Max.X; x++ {
-				c := src.RGBAAt(x, y)
-				yy, cb, cr := color.RGBToYCbCr(c.R, c.G, c.B)
-				dst.Y[dst.YOffset(x, y)] = yy
-				dst.Cb[dst.COffset(x, y)] = cb
-				dst.Cr[dst.COffset(x, y)] = cr
-			}
-		}
-
-		return dst
-	case "paletted":
-		return drawInto(image.NewPaletted(b, palette()), src)
-	case "rgba64":
-		return drawInto(image.NewRGBA64(b), src)
-	case "cmyk":
-		return drawInto(image.NewCMYK(b), src)
-	case "custom":
-		return custom{src}
-	}
-
-	panic("testimage: unknown image kind " + kind)
-}
-
-// drawInto copies src into dst through dst's color model.
-func drawInto(dst setter, src *image.RGBA) image.Image {
-	b := src.Bounds()
-
-	for y := b.Min.Y; y < b.Max.Y; y++ {
-		for x := b.Min.X; x < b.Max.X; x++ {
-			dst.Set(x, y, src.At(x, y))
-		}
-	}
-
-	return dst
-}
-
-func palette() color.Palette {
-	r := newSplitMix(0xb1a5)
-	p := make(color.Palette, 64)
-
-	for i := range p {
-		p[i] = color.RGBA{R: r.byte(), G: r.byte(), B: r.byte(), A: 255}
-	}
-
-	return p
 }
 
 func fill(s image.Point, at func(x, y int) color.RGBA) *image.RGBA {
@@ -199,14 +145,6 @@ func noise(seed uint64) func(int, int) color.RGBA {
 
 func gray(v uint8) color.RGBA {
 	return color.RGBA{R: v, G: v, B: v, A: 255}
-}
-
-func pick(first bool, a, b uint8) uint8 {
-	if first {
-		return a
-	}
-
-	return b
 }
 
 // bump maps i in [0, n) onto a parabola rising from 0 to 255 and back.

@@ -10,6 +10,14 @@ import (
 	"slices"
 )
 
+// Fixed seeds for the random generator. The values are arbitrary; changing one
+// changes the test cases built from it, so the fixtures must be regenerated.
+const (
+	alphaSeed   = 0xa1fa
+	offsetSeed  = 0x0ff5e7
+	paletteSeed = 0xb1a5
+)
+
 // Components counts a hash's horizontal (X) and vertical (Y) components.
 type Components struct {
 	X, Y int
@@ -141,22 +149,22 @@ func Cases() []Case {
 		}
 	}
 
-	for _, kind := range []string{"rgba", "nrgba"} {
-		add("alpha/"+kind+"/16x16", image.Pt(16, 16), translucent(kind, image.Pt(16, 16)))
-		add("offset/"+kind+"/16x16", image.Pt(16, 16), offset(kind, image.Pt(16, 16)))
+	for _, kind := range []imageKind{kindRGBA, kindNRGBA} {
+		add(fmt.Sprintf("alpha/%v/16x16", kind), image.Pt(16, 16), translucent(kind, image.Pt(16, 16)))
+		add(fmt.Sprintf("offset/%v/16x16", kind), image.Pt(16, 16), offset(kind, image.Pt(16, 16)))
 	}
 
 	return out
 }
 
-// Fingerprint returns the SHA-256 of every case ID, component list and pixel.
-func Fingerprint() string {
+// fingerprint returns the SHA-256 of every case ID, component list and pixel.
+func fingerprint() string {
 	h := sha256.New()
 
 	for _, c := range Cases() {
 		fmt.Fprintf(h, "%s %v\n", c.ID, c.Components)
 
-		for _, p := range RGBA(c.Image()) {
+		for _, p := range rgba(c.Image()) {
 			h.Write(p[:])
 		}
 	}
@@ -164,8 +172,8 @@ func Fingerprint() string {
 	return hex.EncodeToString(h.Sum(nil))
 }
 
-// RGBA returns img's pixels in row order as 8-bit premultiplied RGBA.
-func RGBA(img image.Image) [][4]uint8 {
+// rgba returns img's pixels in row order as 8-bit premultiplied RGBA.
+func rgba(img image.Image) [][4]uint8 {
 	b := img.Bounds()
 	out := make([][4]uint8, 0, b.Dx()*b.Dy())
 

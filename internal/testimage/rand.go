@@ -2,7 +2,9 @@ package testimage
 
 import "encoding/binary"
 
-// splitMix is SplitMix64: the corpus must stay byte-stable across Go releases, which math/rand/v2 does not promise.
+// splitMix produces the test cases' random bytes by the SplitMix64
+// algorithm, written out here because math/rand/v2 does not promise the same
+// bytes across Go releases.
 type splitMix struct {
 	state uint64
 	buf   [8]byte
