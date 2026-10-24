@@ -8,7 +8,14 @@ import (
 	"github.com/superiority-dev/blurhash/internal/codec"
 )
 
+// MaxSize is the largest width or height Encode, Decode and DecodeDraw accept.
+const MaxSize = 4096
+
 var (
+	// ErrImageTooLarge is returned for an image wider or taller than
+	// [MaxSize].
+	ErrImageTooLarge = errors.New("blurhash: image too large")
+
 	// ErrInvalidComponents is returned when a component count is outside
 	// [1, 9].
 	ErrInvalidComponents = errors.New("blurhash: must have between 1 and 9 components")

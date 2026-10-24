@@ -69,7 +69,8 @@ for _, img := range images {
 ```
 
 Fastest with `*image.RGBA`, `*image.NRGBA` and `*image.YCbCr`, which
-`image/jpeg` returns. Other image types work too, but slower.
+`image/jpeg` returns. Other image types work too, but slower. An image wider or
+taller than `MaxSize`, 4096 pixels, is refused: shrink it first (below).
 
 ### Decode
 
@@ -92,6 +93,7 @@ for _, batch := range batches {
 wg.Wait()
 ```
 
+Decode and DecodeDraw draw at most `MaxSize`, 4096 pixels, on each side.
 DecodeDraw writes `*image.NRGBA` and `*image.RGBA` directly; other types go
 through their `Set` method, which allocates for every pixel.
 

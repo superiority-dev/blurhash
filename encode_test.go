@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"image"
+	"math"
 	"testing"
 
 	"github.com/superiority-dev/blurhash/internal/testimage"
@@ -29,6 +30,36 @@ func TestEncodeErrors(t *testing.T) {
 	} {
 		if _, err := Encode(4, 3, image.NewRGBA(r)); !errors.Is(err, ErrInvalidDimensions) {
 			t.Errorf("Encode of %v: error %v, want ErrInvalidDimensions", r, err)
+		}
+	}
+}
+
+// TestEncodeSize requires Encode and Encoder.Encode to return
+// ErrInvalidDimensions for an image with no pixels even when its other side is
+// too large, ErrImageTooLarge past MaxSize or for a side that does not fit in
+// an int, and no error at MaxSize.
+func TestEncodeSize(t *testing.T) {
+	var e Encoder
+
+	// A Rectangle is an image with any bounds.
+	for _, c := range []struct {
+		r    image.Rectangle
+		want error
+	}{
+		{image.Rect(0, 0, 0, MaxSize+1), ErrInvalidDimensions},
+		{image.Rect(0, 0, MaxSize+1, 1), ErrImageTooLarge},
+		{image.Rect(0, 0, 1, MaxSize+1), ErrImageTooLarge},
+		{image.Rect(-2, 0, math.MaxInt, 1), ErrImageTooLarge},
+		{image.Rect(0, math.MinInt, 1, 1), ErrImageTooLarge},
+		{image.Rect(0, 0, MaxSize, 1), nil},
+		{image.Rect(0, 0, 1, MaxSize), nil},
+	} {
+		if _, err := Encode(4, 3, c.r); !errors.Is(err, c.want) {
+			t.Errorf("Encode of %v: error %v, want %v", c.r, err, c.want)
+		}
+
+		if _, err := e.Encode(4, 3, c.r); !errors.Is(err, c.want) {
+			t.Errorf("Encoder.Encode of %v: error %v, want %v", c.r, err, c.want)
 		}
 	}
 }
@@ -132,6 +163,57 @@ func TestEncodeYCbCrPanics(t *testing.T) {
 				img.SubsampleRatio, img.Rect, at, enc)
 		}
 	}
+}
+
+// FuzzEncode requires Encode to accept exactly 1 to 9 components on each axis
+// and images 1 to MaxSize pixels on each side, and to return a hash that
+// Components and Decode accept.
+func FuzzEncode(f *testing.F) {
+	f.Add(int16(0), int16(0), int16(8), int16(6), 4, 3, []byte{1, 2, 3, 255})
+	f.Add(int16(-3), int16(5), int16(1), int16(1), 1, 1, []byte{200})
+	f.Add(int16(0), int16(0), int16(0), int16(5), 4, 3, []byte{0})
+	f.Add(int16(0), int16(0), int16(MaxSize+1), int16(1), 4, 3, []byte{0})
+	f.Add(int16(0), int16(0), int16(4), int16(4), 0, 10, []byte{0})
+
+	f.Fuzz(func(t *testing.T, x0, y0, w, h int16, nx, ny int, pix []byte) {
+		r := image.Rectangle{Min: image.Pt(int(x0), int(y0)), Max: image.Pt(int(x0)+int(w), int(y0)+int(h))}
+
+		sized := !r.Empty() && r.Dx() <= MaxSize && r.Dy() <= MaxSize
+		if sized && r.Dx()*r.Dy() > 1<<16 {
+			return // the large accepted sizes are TestEncodeSize's rows
+		}
+
+		// The fuzzed bytes, repeated to fill the image; an image Encode must
+		// refuse is the bare rectangle.
+		var img image.Image = r
+		if sized {
+			buf := make([]byte, 4*r.Dx()*r.Dy())
+			if len(pix) > 0 {
+				for i := range buf {
+					buf[i] = pix[i%len(pix)]
+				}
+			}
+
+			img = &image.NRGBA{Pix: buf, Stride: 4 * r.Dx(), Rect: r}
+		}
+
+		hash, err := Encode(nx, ny, img)
+		if ok := sized && nx >= 1 && nx <= 9 && ny >= 1 && ny <= 9; (err == nil) != ok {
+			t.Fatalf("%v at %dx%d: %v", r, nx, ny, err)
+		}
+
+		if err != nil {
+			return
+		}
+
+		if x, y, err := Components(hash); x != nx || y != ny || err != nil {
+			t.Fatalf("%v at %dx%d: %q has components %d, %d, %v", r, nx, ny, hash, x, y, err)
+		}
+
+		if _, err := Decode(hash, 4, 4, 1); err != nil {
+			t.Fatalf("%v at %dx%d: %q does not decode: %v", r, nx, ny, hash, err)
+		}
+	})
 }
 
 var update = flag.Bool("update", false, "rewrite the files in testdata from the current encoder")

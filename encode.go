@@ -30,8 +30,9 @@ func (e *Encoder) Encode(xComponents, yComponents int, img image.Image) (string,
 }
 
 // Encode returns the BlurHash of img using xComponents horizontal and
-// yComponents vertical components, or [ErrInvalidComponents] or
-// [ErrInvalidDimensions]. It is safe for concurrent use.
+// yComponents vertical components, or [ErrInvalidComponents],
+// [ErrInvalidDimensions] or [ErrImageTooLarge]. It is safe for concurrent
+// use.
 //
 // Color is the premultiplied value [image/color.Color.RGBA] reports, cut to
 // 8 bits; alpha is otherwise ignored.
@@ -49,8 +50,20 @@ func check(xComponents, yComponents int, img image.Image) error {
 		return fmt.Errorf("%w: got %dx%d", ErrInvalidComponents, xComponents, yComponents)
 	}
 
-	if b := img.Bounds(); b.Empty() {
+	b := img.Bounds()
+	if b.Empty() {
 		return fmt.Errorf("%w: got %dx%d", ErrInvalidDimensions, b.Dx(), b.Dy())
+	}
+
+	return checkSize(b)
+}
+
+// checkSize returns ErrImageTooLarge for a b that is not empty and is wider
+// or taller than MaxSize. The sizes are compared as uint, so a side that does
+// not fit in an int is too large too.
+func checkSize(b image.Rectangle) error {
+	if s := b.Size(); !b.Empty() && (uint(s.X) > MaxSize || uint(s.Y) > MaxSize) {
+		return fmt.Errorf("%w: %dx%d, need at most %dx%d", ErrImageTooLarge, uint(s.X), uint(s.Y), MaxSize, MaxSize)
 	}
 
 	return nil

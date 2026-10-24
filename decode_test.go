@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"image"
+	"image/color"
 	"math"
 	"slices"
 	"testing"
@@ -52,6 +53,54 @@ func TestDecodeErrors(t *testing.T) {
 	// An empty destination is not an error and is left alone.
 	if err := DecodeDraw(image.NewNRGBA(image.Rectangle{}), hash1x1, 1); err != nil {
 		t.Errorf("DecodeDraw into an empty image: %v", err)
+	}
+}
+
+// TestDecodeSize requires Decode and Decoder.Decode to return
+// ErrInvalidDimensions for a size with no pixels even when its other side is
+// too large, ErrImageTooLarge past MaxSize, and no error at MaxSize; and
+// DecodeDraw and Decoder.DecodeDraw the same limit on any bounds.
+func TestDecodeSize(t *testing.T) {
+	var d Decoder
+
+	for _, c := range []struct {
+		s    image.Point
+		want error
+	}{
+		{image.Pt(0, MaxSize+1), ErrInvalidDimensions},
+		{image.Pt(MaxSize+1, 1), ErrImageTooLarge},
+		{image.Pt(1, MaxSize+1), ErrImageTooLarge},
+		{image.Pt(math.MaxInt, math.MaxInt), ErrImageTooLarge},
+		{image.Pt(MaxSize, 1), nil},
+		{image.Pt(1, MaxSize), nil},
+	} {
+		if _, err := Decode(hash1x1, c.s.X, c.s.Y, 1); !errors.Is(err, c.want) {
+			t.Errorf("Decode at %v: error %v, want %v", c.s, err, c.want)
+		}
+
+		if _, err := d.Decode(hash1x1, c.s.X, c.s.Y, 1); !errors.Is(err, c.want) {
+			t.Errorf("Decoder.Decode at %v: error %v, want %v", c.s, err, c.want)
+		}
+	}
+
+	for _, c := range []struct {
+		r    image.Rectangle
+		want error
+	}{
+		{image.Rect(0, 0, MaxSize+1, 1), ErrImageTooLarge},
+		{image.Rect(0, 0, 1, MaxSize+1), ErrImageTooLarge},
+		{image.Rect(-2, 0, math.MaxInt, 1), ErrImageTooLarge},
+		{image.Rect(0, math.MinInt, 1, 1), ErrImageTooLarge},
+		{image.Rect(0, 0, MaxSize, 1), nil},
+		{image.Rect(0, 0, 1, MaxSize), nil},
+	} {
+		if err := DecodeDraw(wide{c.r}, hash1x1, 1); !errors.Is(err, c.want) {
+			t.Errorf("DecodeDraw into %v: error %v, want %v", c.r, err, c.want)
+		}
+
+		if err := d.DecodeDraw(wide{c.r}, hash1x1, 1); !errors.Is(err, c.want) {
+			t.Errorf("Decoder.DecodeDraw into %v: error %v, want %v", c.r, err, c.want)
+		}
 	}
 }
 
@@ -112,3 +161,48 @@ func TestDecodeDrawAllocs(t *testing.T) {
 		t.Errorf("DecodeDraw allocates %v times, want 0", n)
 	}
 }
+
+// FuzzDecode requires Decode to accept only sizes from 1 to MaxSize, and
+// Decode and DecodeDraw to agree on which inputs they accept and on the pixels.
+func FuzzDecode(f *testing.F) {
+	for _, s := range []struct {
+		hash          string
+		width, height int
+		punch         float64
+	}{
+		{hash4x3, 7, 5, 1}, {hash1x1, 1, 1, 0}, {"00~~~~", 4, 4, 1}, {hash4x3, 0, 5, 1},
+		{hash1x1, MaxSize + 1, 1, 1}, {hash4x3, 8, 8, math.NaN()}, {hash4x3, 8, 8, 1e308},
+	} {
+		f.Add(s.hash, s.width, s.height, s.punch)
+	}
+
+	f.Fuzz(func(t *testing.T, hash string, width, height int, punch float64) {
+		sized := width > 0 && height > 0 && width <= MaxSize && height <= MaxSize
+		if sized && width*height > 1<<16 {
+			return // the large accepted sizes are TestDecodeSize's rows
+		}
+
+		img, err := Decode(hash, width, height, punch)
+		if err == nil && !sized {
+			t.Fatalf("%q at %dx%d: accepted", hash, width, height)
+		}
+
+		if !sized {
+			return
+		}
+
+		dst := image.NewNRGBA(image.Rect(0, 0, width, height))
+		if errDraw := DecodeDraw(dst, hash, punch); (errDraw == nil) != (err == nil) {
+			t.Fatalf("%q at %dx%d, punch %v: Decode %v, DecodeDraw %v", hash, width, height, punch, err, errDraw)
+		}
+
+		if err == nil && !bytes.Equal(dst.Pix, img.Pix) {
+			t.Fatalf("%q at %dx%d, punch %v: Decode and DecodeDraw draw differently", hash, width, height, punch)
+		}
+	})
+}
+
+// wide is a destination with any bounds, which draws nothing.
+type wide struct{ image.Rectangle }
+
+func (wide) Set(int, int, color.Color) {}

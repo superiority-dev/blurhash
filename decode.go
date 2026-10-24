@@ -36,6 +36,10 @@ func (d *Decoder) Decode(hash string, width, height int, punch float64) (*image.
 
 // DecodeDraw decodes hash into dst, as [DecodeDraw] does.
 func (d *Decoder) DecodeDraw(dst draw.Image, hash string, punch float64) error {
+	if err := checkSize(dst.Bounds()); err != nil {
+		return err
+	}
+
 	return d.d.Draw(dst, hash, punch)
 }
 
@@ -46,8 +50,8 @@ func Components(hash string) (x, y int, err error) {
 }
 
 // Decode returns hash drawn as a width by height image, or
-// [ErrInvalidDimensions], [ErrInvalidHash] or [ErrInvalidPunch]. It is safe
-// for concurrent use.
+// [ErrInvalidDimensions], [ErrImageTooLarge], [ErrInvalidHash] or
+// [ErrInvalidPunch]. It is safe for concurrent use.
 //
 // Punch scales the contrast: 1 draws the hash as encoded, larger values
 // strengthen it, smaller ones soften it, 0 leaves only the average color
@@ -67,9 +71,13 @@ func Decode(hash string, width, height int, punch float64) (*image.NRGBA, error)
 }
 
 // DecodeDraw decodes hash into dst, filling its bounds, with punch as for
-// [Decode], or returns [ErrInvalidHash] or [ErrInvalidPunch]. It is safe for
-// concurrent use.
+// [Decode], or returns [ErrImageTooLarge], [ErrInvalidHash] or
+// [ErrInvalidPunch]. It is safe for concurrent use.
 func DecodeDraw(dst draw.Image, hash string, punch float64) error {
+	if err := checkSize(dst.Bounds()); err != nil {
+		return err
+	}
+
 	return codec.Draw(dst, hash, punch)
 }
 
@@ -78,5 +86,10 @@ func newImage(width, height int) (*image.NRGBA, error) {
 		return nil, fmt.Errorf("%w: got %dx%d", ErrInvalidDimensions, width, height)
 	}
 
-	return image.NewNRGBA(image.Rect(0, 0, width, height)), nil
+	r := image.Rect(0, 0, width, height)
+	if err := checkSize(r); err != nil {
+		return nil, err
+	}
+
+	return image.NewNRGBA(r), nil
 }
