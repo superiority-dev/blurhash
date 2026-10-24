@@ -1,5 +1,9 @@
 # blurhash
 
+[![Go Reference](https://pkg.go.dev/badge/github.com/superiority-dev/blurhash.svg)](https://pkg.go.dev/github.com/superiority-dev/blurhash)
+[![CI](https://github.com/superiority-dev/blurhash/actions/workflows/ci.yml/badge.svg)](https://github.com/superiority-dev/blurhash/actions/workflows/ci.yml)
+[![Coverage](https://codecov.io/gh/superiority-dev/blurhash/graph/badge.svg)](https://codecov.io/gh/superiority-dev/blurhash)
+
 Fast BlurHash for Go, with the same result on every machine.
 
 A [BlurHash](https://blurha.sh/) is a short string that decodes into a blurred

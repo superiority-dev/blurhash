@@ -48,3 +48,13 @@ jobs:
           fi
 
       - run: make check RACE=${{ steps.race.outputs.run }}
+
+      - name: Coverage
+        if: matrix.runner == 'ubuntu-24.04'
+        run: go test -coverpkg="$(go list ./... | grep -v /internal/testimage | paste -sd, -)" -coverprofile=coverage.out ./...
+
+      - uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
+        if: matrix.runner == 'ubuntu-24.04'
+        with:
+          files: coverage.out
+          disable_search: true
