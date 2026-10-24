@@ -160,7 +160,7 @@ func FuzzDecode(f *testing.F) {
 		// decodeBound of a byte boundary.
 		var c [81][3]float64
 
-		nx, ny, _ := colours(&c, hash, punch)
+		nx, ny, _ := readColors(&c, hash, punch)
 		bound := decodeBound(c[:nx*ny])
 
 		for i := range dst.Pix {
@@ -194,7 +194,7 @@ func FuzzDecode(f *testing.F) {
 func slowDecode(dst draw.Image, hash string, punch float64) error {
 	var c [81][3]float64
 
-	nx, ny, err := colours(&c, hash, punch)
+	nx, ny, err := readColors(&c, hash, punch)
 	if err != nil {
 		return err
 	}
@@ -264,7 +264,7 @@ func TestDecodeHugePunch(t *testing.T) {
 }
 
 // slowPixel returns channel ch of the pixel at (x, y) of a w by h image,
-// adding each component's colour times its two cosines in index order.
+// adding each component's color times its two cosines in index order.
 func slowPixel(c [][3]float64, nx, w, h, x, y, ch int) float64 {
 	var sum float64
 

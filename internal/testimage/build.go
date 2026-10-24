@@ -22,27 +22,27 @@ func (c custom) Bounds() image.Rectangle { return c.img.Bounds() }
 func (c custom) At(x, y int) color.Color { return c.img.At(x, y) }
 
 func solid(s image.Point, v uint8) func() image.Image {
-	return func() image.Image { return fill(s, func(int, int) color.RGBA { return grey(v) }) }
+	return func() image.Image { return fill(s, func(int, int) color.RGBA { return gray(v) }) }
 }
 
-// splitX gives the left half of s grey a and the right half grey b.
+// splitX gives the left half of s gray a and the right half gray b.
 func splitX(s image.Point, a, b uint8) func() image.Image {
 	return func() image.Image {
-		return fill(s, func(x, _ int) color.RGBA { return grey(pick(x < s.X/2, a, b)) })
+		return fill(s, func(x, _ int) color.RGBA { return gray(pick(x < s.X/2, a, b)) })
 	}
 }
 
-// splitY gives the top half of s grey a and the bottom half grey b.
+// splitY gives the top half of s gray a and the bottom half gray b.
 func splitY(s image.Point, a, b uint8) func() image.Image {
 	return func() image.Image {
-		return fill(s, func(_, y int) color.RGBA { return grey(pick(y < s.Y/2, a, b)) })
+		return fill(s, func(_, y int) color.RGBA { return gray(pick(y < s.Y/2, a, b)) })
 	}
 }
 
 // whiteRun makes the first n pixels of the top row white and the rest black.
 func whiteRun(s image.Point, n int) func() image.Image {
 	return func() image.Image {
-		return fill(s, func(x, y int) color.RGBA { return grey(pick(y == 0 && x < n, 255, 0)) })
+		return fill(s, func(x, y int) color.RGBA { return gray(pick(y == 0 && x < n, 255, 0)) })
 	}
 }
 
@@ -153,7 +153,7 @@ func convert(kind string, src *image.RGBA) image.Image {
 	panic("testimage: unknown image kind " + kind)
 }
 
-// drawInto copies src into dst through dst's colour model.
+// drawInto copies src into dst through dst's color model.
 func drawInto(dst setter, src *image.RGBA) image.Image {
 	b := src.Bounds()
 
@@ -197,7 +197,7 @@ func noise(seed uint64) func(int, int) color.RGBA {
 	}
 }
 
-func grey(v uint8) color.RGBA {
+func gray(v uint8) color.RGBA {
 	return color.RGBA{R: v, G: v, B: v, A: 255}
 }
 

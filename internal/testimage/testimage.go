@@ -41,7 +41,7 @@ var (
 	}
 
 	// Smallest, even and odd.
-	greySizes = []image.Point{{1, 1}, {8, 8}, {9, 7}}
+	graySizes = []image.Point{{1, 1}, {8, 8}, {9, 7}}
 
 	// Smallest, even, odd, and the 100x75 thumbnail.
 	splitSizes = []image.Point{{2, 2}, {8, 8}, {9, 7}, {100, 75}}
@@ -81,7 +81,7 @@ func Cases() []Case {
 		out = append(out, Case{ID: id, Components: comps, build: build})
 	}
 
-	for _, s := range greySizes {
+	for _, s := range graySizes {
 		for v := range 256 {
 			add(fmt.Sprintf("grey/%d/%v", v, size(s)), s, solid(s, uint8(v)))
 		}
@@ -132,7 +132,7 @@ func Cases() []Case {
 		})
 	}
 
-	// An AC value 2e-9 from a quantisation boundary, not a tie.
+	// An AC value 2e-9 from a quantization boundary, not a tie.
 	add("near/26318/3x3", image.Pt(3, 3), noisy(image.Pt(3, 3), 26318))
 
 	for _, s := range typeSizes {

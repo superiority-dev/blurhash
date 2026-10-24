@@ -21,7 +21,7 @@ var testdata embed.FS
 
 // TestCoefficientBits compares a digest of every coefficient's bits, per corpus
 // image, with testdata/coefficients.txt. Hashes show an arithmetic change
-// only where it crosses a quantisation boundary; this shows any change, and
+// only where it crosses a quantization boundary; this shows any change, and
 // run on each build target it shows whether the targets agree.
 func TestCoefficientBits(t *testing.T) {
 	var lines []string

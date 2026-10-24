@@ -83,15 +83,15 @@ func slowCoefficients(nx, ny int, img image.Image) [][3]float64 {
 				}
 			}
 
-			// The average colour (i = j = 0) is the plain mean; every other
-			// component is doubled, as the cosine transform's normalisation
+			// The average color (i = j = 0) is the plain mean; every other
+			// component is doubled, as the cosine transform's normalization
 			// requires. The scale is applied once, after the sum.
-			normalisation := 2.0
+			normalization := 2.0
 			if i == 0 && j == 0 {
-				normalisation = 1
+				normalization = 1
 			}
 
-			scale := normalisation / float64(w*h)
+			scale := normalization / float64(w*h)
 
 			for c := range sum {
 				out[j*nx+i][c] = sum[c] * scale

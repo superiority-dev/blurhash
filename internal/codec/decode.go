@@ -29,9 +29,9 @@ func Components(hash string) (x, y int, err error) {
 	return x, y, nil
 }
 
-// colours writes the linear-light colour of each component of hash into dst,
+// readColors writes the linear-light color of each component of hash into dst,
 // index j*nx+i, with the AC amplitudes scaled by punch.
-func colours(dst *[81][3]float64, hash string, punch float64) (nx, ny int, err error) {
+func readColors(dst *[81][3]float64, hash string, punch float64) (nx, ny int, err error) {
 	nx, ny, err = Components(hash)
 	if err != nil {
 		return 0, 0, err
@@ -46,7 +46,7 @@ func colours(dst *[81][3]float64, hash string, punch float64) (nx, ny int, err e
 		return 0, 0, fmt.Errorf("%w: maximum %q", ErrInvalidHash, hash[1:2])
 	}
 
-	amplitude := unquantiseMaximum(q) * punch
+	amplitude := unquantizeMaximum(q) * punch
 
 	dc, ok := readBase83(hash[2:6])
 	if !ok || dc > 0xffffff {
@@ -62,18 +62,18 @@ func colours(dst *[81][3]float64, hash string, punch float64) (nx, ny int, err e
 		}
 
 		dst[k] = [3]float64{
-			unquantise(ac/(19*19), amplitude),
-			unquantise(ac/19%19, amplitude),
-			unquantise(ac%19, amplitude),
+			unquantize(ac/(19*19), amplitude),
+			unquantize(ac/19%19, amplitude),
+			unquantize(ac%19, amplitude),
 		}
 	}
 
 	return nx, ny, nil
 }
 
-// unquantise returns the AC value of digit q at the given amplitude: the
+// unquantize returns the AC value of digit q at the given amplitude: the
 // square of (q-9)/9, keeping its sign, times the amplitude.
-func unquantise(q int, amplitude float64) float64 {
+func unquantize(q int, amplitude float64) float64 {
 	v := float64(q-9) / 9
 
 	return v * math.Abs(v) * amplitude
@@ -95,15 +95,15 @@ func Draw(dst draw.Image, hash string, punch float64) error {
 // A Decoder decodes BlurHashes and keeps its cosine tables between calls. The
 // zero value is ready to use. A Decoder is not safe for concurrent use.
 type Decoder struct {
-	colours [81][3]float64
-	rows    [2][9][3]float64
-	tables  cache
+	colors [81][3]float64
+	rows   [2][9][3]float64
+	tables cache
 }
 
 // Draw decodes hash into dst, filling its bounds, with the components'
 // contrast scaled by punch.
 func (d *Decoder) Draw(dst draw.Image, hash string, punch float64) error {
-	nx, ny, err := colours(&d.colours, hash, punch)
+	nx, ny, err := readColors(&d.colors, hash, punch)
 	if err != nil {
 		return err
 	}
@@ -148,7 +148,7 @@ func (d *Decoder) sumRows(nx, ny int, cosY [][]float64, y int) {
 		var er, eg, eb, or, og, ob float64
 
 		for j := 0; j < ny; j += 2 {
-			cy, v := cosY[j][y], d.colours[j*nx+i]
+			cy, v := cosY[j][y], d.colors[j*nx+i]
 			// Each product is rounded before it is added, so no target fuses the two.
 			er += float64(cy * v[0])
 			eg += float64(cy * v[1])
@@ -156,7 +156,7 @@ func (d *Decoder) sumRows(nx, ny int, cosY [][]float64, y int) {
 		}
 
 		for j := 1; j < ny; j += 2 {
-			cy, v := cosY[j][y], d.colours[j*nx+i]
+			cy, v := cosY[j][y], d.colors[j*nx+i]
 			or += float64(cy * v[0])
 			og += float64(cy * v[1])
 			ob += float64(cy * v[2])

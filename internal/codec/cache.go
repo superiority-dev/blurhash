@@ -29,9 +29,9 @@ const (
 	cacheFloats = 8192
 )
 
-// get returns cos(pi*k*p/n) for each k below count and p up to n/2.
-func (c *cache) get(n, count int) [][]float64 {
-	at := slices.IndexFunc(c.tables, func(t table) bool { return t.n == n })
+// get returns cos(pi*k*p/side) for each k below components and p up to side/2.
+func (c *cache) get(side, components int) [][]float64 {
+	at := slices.IndexFunc(c.tables, func(t table) bool { return t.n == side })
 
 	var t table
 	if at >= 0 {
@@ -39,13 +39,13 @@ func (c *cache) get(n, count int) [][]float64 {
 		c.tables = slices.Delete(c.tables, at, at+1)
 		c.floats -= t.floats()
 	} else {
-		t.n = n
+		t.n = side
 	}
 
-	for k := len(t.cos); k < count; k++ {
-		row := make([]float64, n/2+1)
+	for k := len(t.cos); k < components; k++ {
+		row := make([]float64, side/2+1)
 		for p := range row {
-			row[p] = cosine(k, p, n)
+			row[p] = cosine(k, p, side)
 		}
 
 		t.cos = append(t.cos, row)

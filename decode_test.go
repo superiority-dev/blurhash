@@ -25,7 +25,7 @@ func TestComponentsErrors(t *testing.T) {
 		"000000000",  // 1x1 needs exactly 6 characters
 		"1000000",    // 2x1 needs 8 characters: one short
 		"0!0000",     // maximum is not a digit
-		"00~~~~",     // average colour above 0xffffff
+		"00~~~~",     // average color above 0xffffff
 		"100000~~",   // 2x1 whose AC holds a digit above 18
 		"100000!0",   // AC is not a digit
 	} {
