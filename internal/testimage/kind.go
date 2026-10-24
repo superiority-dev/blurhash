@@ -9,11 +9,10 @@ import (
 const paletteSize = 64
 
 // kinds lists the kinds of the type family, in case order.
-var kinds = []imageKind{kindNRGBA, kindGray, kindYCbCr, kindPaletted, kindRGBA64, kindCMYK, kindCustom}
+var kinds = []imageKind{kindNRGBA, kindGray, kindYCbCr, kindPaletted, kindRGBA64, kindCMYK}
 
 // imageKind is the type a test image is stored as: one of package image's
-// pixel-buffer types, or custom. Its name appears in case IDs, as in
-// type/gray/33x41.
+// pixel-buffer types. Its name appears in case IDs, as in type/gray/33x41.
 type imageKind uint8
 
 const (
@@ -23,22 +22,12 @@ const (
 	kindPaletted
 	kindRGBA64
 	kindCMYK
-	kindCustom
 	kindRGBA
 )
 
 func (k imageKind) String() string {
-	return [...]string{"nrgba", "gray", "ycbcr", "paletted", "rgba64", "cmyk", "custom", "rgba"}[k]
+	return [...]string{"nrgba", "gray", "ycbcr", "paletted", "rgba64", "cmyk", "rgba"}[k]
 }
-
-// custom hides an RGBA behind a type the encoder has no fast path for.
-type custom struct {
-	img *image.RGBA
-}
-
-func (c custom) ColorModel() color.Model { return color.RGBAModel }
-func (c custom) Bounds() image.Rectangle { return c.img.Bounds() }
-func (c custom) At(x, y int) color.Color { return c.img.At(x, y) }
 
 // convert stores src in an image of the given kind.
 func convert(kind imageKind, src *image.RGBA) image.Image {
@@ -72,8 +61,6 @@ func convert(kind imageKind, src *image.RGBA) image.Image {
 		return drawInto(image.NewRGBA64(b), src)
 	case kindCMYK:
 		return drawInto(image.NewCMYK(b), src)
-	case kindCustom:
-		return custom{src}
 	case kindRGBA:
 		return src
 	}

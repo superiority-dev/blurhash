@@ -61,6 +61,8 @@ func linearRow(dst [][3]float64, img image.Image, y int) {
 			}
 		}
 	default:
+		// Every type in package image also implements image.RGBA64Image, so a fast
+		// path on that interface would leave this loop without a type to test it.
 		for x := range dst {
 			r, g, bl, _ := img.At(b.Min.X+x, b.Min.Y+y).RGBA()
 			dst[x] = [3]float64{linear[r>>8], linear[g>>8], linear[bl>>8]}

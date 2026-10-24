@@ -1,4 +1,4 @@
-# fingerprint dd458d488d45e60701ba47464808a744c8b7b35535d57b9c23933f1292a23c9e
+# fingerprint 8c178439b9f359d7071f4a8e220ff668585ef4032b47d907472dfc4efd7add26
 # source github.com/woltapp/blurhash@dd1986b561c582e10e5f19bdde8482df709d58b3 C/encode.c
 # cc gcc (GCC) 14.4.0
 # cflags -std=c99 -O2 -ffp-contract=off
@@ -9623,16 +9623,6 @@ type/cmyk/33x41 5x5 e4HVC+^-HbyCs:-.F_AA9@X_=.+km:Ir-5%$xSsGv;T^mlEdNaQqGD
 type/cmyk/33x41 9x1 84HVC+^-HbyCs:^+O]_3O?
 type/cmyk/33x41 1x9 =6HVC+%K-MyEm,.8rg~9pt
 type/cmyk/33x41 9x9 |6HVC+?IMMx[s:?HTL?bTI%KKOExEeXyoznBxFtd-M#Gn6NI$xNwwhwPRryEs~n.v:Y3$^+@k$K{m,I.NbVHKfr_TWk$X3.8TcTHxww7T2RjxA$zrgS$V%#GXUx[b1$,XL~9,=NMKMkCkEnDv,nOpttQVxRWo$X-j1XytP
-type/custom/33x41 1x1 00HVC+
-type/custom/33x41 1x2 91HVC+~n
-type/custom/33x41 2x1 13HVC+~E
-type/custom/33x41 3x3 K4HVC+^nHb-.F_AA=.+km:
-type/custom/33x41 4x3 L4HVC+^nHb%f-.F_AA9@=.+km:Ir
-type/custom/33x41 3x4 T4HVC+^nHb-.F_AA=.+km:%$xSsG
-type/custom/33x41 5x5 e4HVC+^nHb%fs:-.F_AA9@X_=.+km:Ir-5%$xSsGv;T^mlEdNaQqGD
-type/custom/33x41 9x1 84HVC+^nHb%fs:^+O]_3O?
-type/custom/33x41 1x9 =6HVC+%K-MyEm,.8rg~9pt
-type/custom/33x41 9x9 |6HVC+=~MMx[s.?HTL?bTI%KKOExEeXyoznBxFtd-M#Gn6NI$xNwwhwPRryEs~n.v:Y3$^+@k$K{m,I.NbVHKfr_TVk$X3.8TcTHxww7T2RjxA$zrgS$V%#GXUtka*$,S[~9,=NMKNkCkEnDv,nOpttQVxRWo$X-j1XytP
 type/nrgba/100x75 1x1 00HLrG
 type/nrgba/100x75 1x2 90HLrG~p
 type/nrgba/100x75 2x1 11HLrG^R
@@ -9693,16 +9683,6 @@ type/cmyk/100x75 5x5 e1HVF?^Rreu3M}?tO8v$voIW-ZXLv_Xxq-,0OvYFEn7YBp$2m[V6Gj
 type/cmyk/100x75 9x1 81HVF?^Rreu3M}.9;p%$N5
 type/cmyk/100x75 1x9 =2HVF?%f$.#sF{*G$~%rtf
 type/cmyk/100x75 9x9 |2HVF?=znTt+NH%h,LyDRq%fScw0v.M}V?r?gHjE$.X3r:XerMOjZ;ElR.#sS+cQI^Bjadzzj^m;F{wunAVOKunTrENEm.*GjfP8nMNJNNWIIqM|$~ijnUAEQ:jDTvVetI%rX+vyG7M|#Ye[IwrytfrKJ~RXkDOnNFSuNO
-type/custom/100x75 1x1 00HLrG
-type/custom/100x75 1x2 90HLrG~p
-type/custom/100x75 2x1 11HLrG^R
-type/custom/100x75 3x3 K1HLrG^Rre?tO8v$-ZXLv_
-type/custom/100x75 4x3 L1HLrG^Rreu3?tO8v$vo-ZXLv_Xx
-type/custom/100x75 3x4 T1HLrG^Rre?tO8v$-ZXLv_,0OvYF
-type/custom/100x75 5x5 e1HLrG^Rreu3M}?tO8v$voIW-ZXLv_Xxq-,0OvYFEn7YBp$2m[V6Gj
-type/custom/100x75 9x1 81HLrG^Rreu3M}.9;p%$N5
-type/custom/100x75 1x9 =2HLrG%f$.#sF{*G$~%rtf
-type/custom/100x75 9x9 |2HLrG=znTt+NH%h,LyDRq%fScrsv.M}V?r?gHjE$.X3r:XerMOjZ;ElR.#sS+cQI^Bjadzzj^m;F{wunAVOKunTrENEm.*GjfP8nNNJNNWIIqM|$~ijnUAEQ:jDTvVetI%rX+vyG7M|#YakIwrytfrKJ~RXkDOoNFSuNO
 alpha/rgba/16x16 1x1 009t7W
 alpha/rgba/16x16 1x2 949t7W%%
 alpha/rgba/16x16 2x1 109t7W?_
