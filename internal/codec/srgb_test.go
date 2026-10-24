@@ -10,34 +10,6 @@ import (
 
 const exactPrec = 512
 
-// power12over5 returns (num/den)^(12/5), computed to exactPrec bits and
-// rounded to the nearest float64.
-func power12over5(num, den int64) float64 {
-	n := new(big.Int).Exp(big.NewInt(num), big.NewInt(12), nil)
-	d := new(big.Int).Exp(big.NewInt(den), big.NewInt(12), nil)
-	x := new(big.Float).SetPrec(exactPrec).SetRat(new(big.Rat).SetFrac(n, d))
-	f, _ := x.Float64()
-	y := new(big.Float).SetPrec(exactPrec).SetFloat64(math.Pow(f, 0.2))
-
-	// Newton's method for the fifth root of x, from math.Pow's estimate. Each
-	// step about doubles the correct bits, so 20 is far more than exactPrec needs.
-	for range 20 {
-		y4 := new(big.Float).SetPrec(exactPrec).Mul(y, y)
-		y4.Mul(y4, y4)
-		t := new(big.Float).SetPrec(exactPrec).Quo(x, y4)
-		y.Mul(y, big.NewFloat(4)).Add(y, t).Quo(y, big.NewFloat(5))
-	}
-
-	r, _ := y.Float64()
-
-	return r
-}
-
-func rational(num, den int64) float64 {
-	f, _ := big.NewRat(num, den).Float64()
-	return f
-}
-
 // TestLinearExact requires each entry to be the sRGB-to-linear value of its
 // byte, correctly rounded: v/3294.6 = 5v/16473 up to byte 10, where v/255 <=
 // 0.04045, and ((v/255+0.055)/1.055)^2.4 = ((40v+561)/10761)^(12/5) above.
@@ -50,6 +22,24 @@ func TestLinearExact(t *testing.T) {
 
 		if linear[v] != want {
 			t.Errorf("linear[%d] = %x, exact value rounds to %x", v, linear[v], want)
+		}
+	}
+}
+
+// TestLinearFormula requires each entry to lie within 8 ulp of the float64
+// formula it replaces, whose own rounding before the power reaches 7 ulp.
+func TestLinearFormula(t *testing.T) {
+	for v := range 256 {
+		f := float64(v) / 255
+
+		formula := f / 12.92
+		if f > 0.04045 {
+			formula = math.Pow((f+0.055)/1.055, 2.4)
+		}
+
+		ulp := math.Abs(formula-linear[v]) / (math.Nextafter(linear[v], 2) - linear[v])
+		if ulp > 8 {
+			t.Errorf("linear[%d] is %.0f ulp from the formula", v, ulp)
 		}
 	}
 }
@@ -71,20 +61,20 @@ func TestThresholds(t *testing.T) {
 	}
 }
 
-// TestLinearFormula requires each entry to lie within 8 ulp of the float64
-// formula it replaces, whose own rounding before the power reaches 7 ulp.
-func TestLinearFormula(t *testing.T) {
-	for v := range 256 {
-		f := float64(v) / 255
+// TestCells requires no cell to hold more than two thresholds.
+func TestCells(t *testing.T) {
+	for k := range cells {
+		lo, hi := float64(k)/cells, float64(k+1)/cells
+		n := 0
 
-		formula := f / 12.92
-		if f > 0.04045 {
-			formula = math.Pow((f+0.055)/1.055, 2.4)
+		for _, th := range thresholds {
+			if th >= lo && th < hi {
+				n++
+			}
 		}
 
-		ulp := math.Abs(formula-linear[v]) / (math.Nextafter(linear[v], 2) - linear[v])
-		if ulp > 8 {
-			t.Errorf("linear[%d] is %.0f ulp from the formula", v, ulp)
+		if n > 2 {
+			t.Fatalf("cell %d holds %d thresholds", k, n)
 		}
 	}
 }
@@ -109,11 +99,6 @@ func TestToSRGBBoundaries(t *testing.T) {
 			t.Errorf("toSRGB(%v) = %d, want %d", c.v, got, c.want)
 		}
 	}
-}
-
-// searchSRGB returns the number of thresholds v reaches, by binary search.
-func searchSRGB(v float64) int {
-	return sort.Search(len(thresholds), func(k int) bool { return thresholds[k] > v })
 }
 
 // TestToSRGBSearch requires toSRGB to agree with searchSRGB at every
@@ -148,20 +133,35 @@ func TestToSRGBSearch(t *testing.T) {
 	}
 }
 
-// TestCells requires no cell to hold more than two thresholds.
-func TestCells(t *testing.T) {
-	for k := range cells {
-		lo, hi := float64(k)/cells, float64(k+1)/cells
-		n := 0
+// power12over5 returns (num/den)^(12/5), computed to exactPrec bits and
+// rounded to the nearest float64.
+func power12over5(num, den int64) float64 {
+	n := new(big.Int).Exp(big.NewInt(num), big.NewInt(12), nil)
+	d := new(big.Int).Exp(big.NewInt(den), big.NewInt(12), nil)
+	x := new(big.Float).SetPrec(exactPrec).SetRat(new(big.Rat).SetFrac(n, d))
+	f, _ := x.Float64()
+	y := new(big.Float).SetPrec(exactPrec).SetFloat64(math.Pow(f, 0.2))
 
-		for _, th := range thresholds {
-			if th >= lo && th < hi {
-				n++
-			}
-		}
-
-		if n > 2 {
-			t.Fatalf("cell %d holds %d thresholds", k, n)
-		}
+	// Newton's method for the fifth root of x, from math.Pow's estimate. Each
+	// step about doubles the correct bits, so 20 is far more than exactPrec needs.
+	for range 20 {
+		y4 := new(big.Float).SetPrec(exactPrec).Mul(y, y)
+		y4.Mul(y4, y4)
+		t := new(big.Float).SetPrec(exactPrec).Quo(x, y4)
+		y.Mul(y, big.NewFloat(4)).Add(y, t).Quo(y, big.NewFloat(5))
 	}
+
+	r, _ := y.Float64()
+
+	return r
+}
+
+func rational(num, den int64) float64 {
+	f, _ := big.NewRat(num, den).Float64()
+	return f
+}
+
+// searchSRGB returns the number of thresholds v reaches, by binary search.
+func searchSRGB(v float64) int {
+	return sort.Search(len(thresholds), func(k int) bool { return thresholds[k] > v })
 }

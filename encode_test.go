@@ -11,13 +11,6 @@ import (
 	"github.com/superiority-dev/blurhash/internal/testimage"
 )
 
-var update = flag.Bool("update", false, "rewrite the files in testdata from the current encoder")
-
-// testdata is embedded so the tests run where only the test binary is.
-//
-//go:embed testdata
-var testdata embed.FS
-
 func TestEncodeErrors(t *testing.T) {
 	img := image.NewRGBA(image.Rect(0, 0, 4, 4))
 
@@ -140,6 +133,13 @@ func TestEncodeYCbCrPanics(t *testing.T) {
 		}
 	}
 }
+
+var update = flag.Bool("update", false, "rewrite the files in testdata from the current encoder")
+
+// testdata is embedded so the tests run where only the test binary is.
+//
+//go:embed testdata
+var testdata embed.FS
 
 func panics(f func()) (p bool) {
 	defer func() { p = recover() != nil }()

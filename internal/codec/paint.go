@@ -6,7 +6,8 @@ import (
 	"image/draw"
 )
 
-// painter writes decoded pixels into one destination.
+// painter holds one destination for decoded pixels, with its NRGBA or RGBA
+// bytes when it has them.
 type painter struct {
 	dst    draw.Image
 	b      image.Rectangle

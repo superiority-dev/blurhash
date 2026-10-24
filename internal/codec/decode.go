@@ -8,95 +8,14 @@ import (
 	"sync"
 )
 
-// Components returns the numbers of horizontal and vertical components
-// hash encodes.
-func Components(hash string) (x, y int, err error) {
-	if len(hash) < 6 {
-		return 0, 0, fmt.Errorf("%w: %d characters, need at least 6", ErrInvalidHash, len(hash))
-	}
-
-	size, ok := readBase83(hash[:1])
-	if !ok || size > 80 {
-		return 0, 0, fmt.Errorf("%w: size %q", ErrInvalidHash, hash[:1])
-	}
-
-	x, y = size%9+1, size/9+1
-	if n := 4 + 2*x*y; len(hash) != n {
-		return 0, 0, fmt.Errorf("%w: %d characters, need %d for %dx%d components",
-			ErrInvalidHash, len(hash), n, x, y)
-	}
-
-	return x, y, nil
-}
-
-// readColors writes the linear-light color of each component of hash into dst,
-// index j*nx+i, with the AC amplitudes scaled by punch.
-func readColors(dst *[81][3]float64, hash string, punch float64) (nx, ny int, err error) {
-	nx, ny, err = Components(hash)
-	if err != nil {
-		return 0, 0, err
-	}
-
-	if math.IsNaN(punch) || math.IsInf(punch, 0) {
-		return 0, 0, fmt.Errorf("%w: got %v", ErrInvalidPunch, punch)
-	}
-
-	q, ok := readBase83(hash[1:2])
-	if !ok {
-		return 0, 0, fmt.Errorf("%w: maximum %q", ErrInvalidHash, hash[1:2])
-	}
-
-	amplitude := unquantizeMaximum(q) * punch
-
-	dc, ok := readBase83(hash[2:6])
-	if !ok || dc > 0xffffff {
-		return 0, 0, fmt.Errorf("%w: average colour %q", ErrInvalidHash, hash[2:6])
-	}
-
-	dst[0] = [3]float64{linear[dc>>16], linear[dc>>8&0xff], linear[dc&0xff]}
-
-	for k := 1; k < nx*ny; k++ {
-		ac, ok := readBase83(hash[4+2*k : 6+2*k])
-		if !ok || ac >= 19*19*19 {
-			return 0, 0, fmt.Errorf("%w: component %d %q", ErrInvalidHash, k, hash[4+2*k:6+2*k])
-		}
-
-		dst[k] = [3]float64{
-			unquantize(ac/(19*19), amplitude),
-			unquantize(ac/19%19, amplitude),
-			unquantize(ac%19, amplitude),
-		}
-	}
-
-	return nx, ny, nil
-}
-
-// unquantize returns the AC value of digit q at the given amplitude: the
-// square of (q-9)/9, keeping its sign, times the amplitude.
-func unquantize(q int, amplitude float64) float64 {
-	v := float64(q-9) / 9
-
-	return v * math.Abs(v) * amplitude
-}
-
 // decoders holds the Decoders behind Draw.
 var decoders = sync.Pool{New: func() any { return new(Decoder) }}
-
-// Draw decodes hash into dst, filling its bounds, with the components'
-// contrast scaled by punch, using a Decoder from a pool. It is safe for
-// concurrent use.
-func Draw(dst draw.Image, hash string, punch float64) error {
-	d := decoders.Get().(*Decoder)
-	defer decoders.Put(d)
-
-	return d.Draw(dst, hash, punch)
-}
 
 // A Decoder decodes BlurHashes and keeps its cosine tables between calls. The
 // zero value is ready to use. A Decoder is not safe for concurrent use.
 type Decoder struct {
-	colors [81][3]float64
-	rows   [2][9][3]float64
+	colors [MaxComponents * MaxComponents][3]float64
+	rows   [2][MaxComponents][3]float64
 	tables cache
 }
 
@@ -165,4 +84,85 @@ func (d *Decoder) sumRows(nx, ny int, cosY [][]float64, y int) {
 		d.rows[0][i] = [3]float64{er + or, eg + og, eb + ob}
 		d.rows[1][i] = [3]float64{er - or, eg - og, eb - ob}
 	}
+}
+
+// Draw decodes hash into dst, filling its bounds, with the components'
+// contrast scaled by punch, using a Decoder from a pool. It is safe for
+// concurrent use.
+func Draw(dst draw.Image, hash string, punch float64) error {
+	d := decoders.Get().(*Decoder)
+	defer decoders.Put(d)
+
+	return d.Draw(dst, hash, punch)
+}
+
+// Components returns the numbers of horizontal and vertical components
+// hash encodes.
+func Components(hash string) (x, y int, err error) {
+	if len(hash) < acAt {
+		return 0, 0, fmt.Errorf("%w: %d characters, need at least 6", ErrInvalidHash, len(hash))
+	}
+
+	size, ok := readBase83(hash[:sizeDigits])
+	if !ok || size > MaxComponents*MaxComponents-1 {
+		return 0, 0, fmt.Errorf("%w: size %q", ErrInvalidHash, hash[:sizeDigits])
+	}
+
+	x, y = size%MaxComponents+1, size/MaxComponents+1
+	if n := acBase + acDigits*x*y; len(hash) != n {
+		return 0, 0, fmt.Errorf("%w: %d characters, need %d for %dx%d components",
+			ErrInvalidHash, len(hash), n, x, y)
+	}
+
+	return x, y, nil
+}
+
+// readColors writes the linear-light color of each component of hash into dst,
+// index j*nx+i, with the AC amplitudes scaled by punch.
+func readColors(dst *[MaxComponents * MaxComponents][3]float64, hash string, punch float64) (nx, ny int, err error) {
+	nx, ny, err = Components(hash)
+	if err != nil {
+		return 0, 0, err
+	}
+
+	if math.IsNaN(punch) || math.IsInf(punch, 0) {
+		return 0, 0, fmt.Errorf("%w: got %v", ErrInvalidPunch, punch)
+	}
+
+	q, ok := readBase83(hash[maximumAt:dcAt])
+	if !ok {
+		return 0, 0, fmt.Errorf("%w: maximum %q", ErrInvalidHash, hash[maximumAt:dcAt])
+	}
+
+	amplitude := unquantizeMaximum(q) * punch
+
+	dc, ok := readBase83(hash[dcAt:acAt])
+	if !ok || dc > maxDC {
+		return 0, 0, fmt.Errorf("%w: average colour %q", ErrInvalidHash, hash[dcAt:acAt])
+	}
+
+	dst[0] = [3]float64{linear[dc>>16], linear[dc>>8&0xff], linear[dc&0xff]}
+
+	for k := 1; k < nx*ny; k++ {
+		ac, ok := readBase83(hash[acBase+acDigits*k : acAt+acDigits*k])
+		if !ok || ac >= acLevels*acLevels*acLevels {
+			return 0, 0, fmt.Errorf("%w: component %d %q", ErrInvalidHash, k, hash[acBase+acDigits*k:acAt+acDigits*k])
+		}
+
+		dst[k] = [3]float64{
+			unquantize(ac/(acLevels*acLevels), amplitude),
+			unquantize(ac/acLevels%acLevels, amplitude),
+			unquantize(ac%acLevels, amplitude),
+		}
+	}
+
+	return nx, ny, nil
+}
+
+// unquantize returns the AC value of digit q at the given amplitude: the
+// square of (q-9)/9, keeping its sign, times the amplitude.
+func unquantize(q int, amplitude float64) float64 {
+	v := float64(q-acMid) / acMid
+
+	return v * math.Abs(v) * amplitude
 }

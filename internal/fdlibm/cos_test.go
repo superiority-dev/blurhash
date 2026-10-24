@@ -18,6 +18,8 @@ import (
 // below 9 and p below n. Every build target must reproduce it.
 const domainDigest = "a5459843dfe66a0d7ea00dd93cbdad550f03581df8a5c39ad9383520a50ee29a"
 
+const prec = 256
+
 // TestCosDomain requires Cos to return domainDigest's bits on every build
 // target, at every argument the encoder uses for sides up to 1024.
 func TestCosDomain(t *testing.T) {
@@ -61,8 +63,6 @@ func TestCosAccuracy(t *testing.T) {
 		}
 	}
 }
-
-const prec = 256
 
 // pi to 80 digits, more than prec needs.
 var pi, _, _ = big.ParseFloat("3.14159265358979323846264338327950288419716939937510"+

@@ -8,23 +8,12 @@ import (
 // encoders holds the Encoders behind Encode.
 var encoders = sync.Pool{New: func() any { return new(Encoder) }}
 
-// Encode returns the BlurHash of img at nx by ny components, each between 1
-// and 9, for an image with pixels. It is safe for concurrent use.
-func Encode(nx, ny int, img image.Image) string {
-	e := encoders.Get().(*Encoder)
-	hash := e.Encode(nx, ny, img)
-	e.trim()
-	encoders.Put(e)
-
-	return hash
-}
-
 // An Encoder computes BlurHashes and keeps its buffers and cosine tables
 // between calls. The zero value is ready to use. An Encoder is not safe for
 // concurrent use.
 type Encoder struct {
 	line, sum, dif, rows, out [][3]float64
-	result                    [9][3]float64 // mirror's output, for up to 9 components
+	result                    [MaxComponents][3]float64 // mirror's output
 	tables                    cache
 }
 
@@ -139,6 +128,17 @@ func (e *Encoder) mirror(v [][3]float64, cos [][]float64) [][3]float64 {
 	}
 
 	return out
+}
+
+// Encode returns the BlurHash of img at nx by ny components, each between 1
+// and 9, for an image with pixels. It is safe for concurrent use.
+func Encode(nx, ny int, img image.Image) string {
+	e := encoders.Get().(*Encoder)
+	hash := e.Encode(nx, ny, img)
+	e.trim()
+	encoders.Put(e)
+
+	return hash
 }
 
 // dot returns the sum of c[k] times v[k] for each channel.

@@ -12,13 +12,6 @@ import (
 	"github.com/superiority-dev/blurhash/internal/testimage"
 )
 
-var update = flag.Bool("update", false, "rewrite the files in testdata from the current encoder")
-
-// testdata is embedded so the tests run where only the test binary is.
-//
-//go:embed testdata
-var testdata embed.FS
-
 // TestEncoderCoefficientsBits requires the bits of every coefficient, from an
 // Encoder and from slowCoefficients, to match testdata/coefficients.txt on
 // every build target.
@@ -31,6 +24,13 @@ func TestEncoderCoefficientsBits(t *testing.T) {
 
 	testimage.Golden(t, testdata, "testdata/coefficients.txt", lines, *update)
 }
+
+var update = flag.Bool("update", false, "rewrite the files in testdata from the current encoder")
+
+// testdata is embedded so the tests run where only the test binary is.
+//
+//go:embed testdata
+var testdata embed.FS
 
 // coefficientDigest returns the SHA-256 of every coefficient from
 // slowCoefficients and from an Encoder, at each of c's component counts.

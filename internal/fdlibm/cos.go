@@ -17,28 +17,6 @@ package fdlibm
 
 import "math"
 
-// Cos returns the cosine of x, for x from 0 to 2^19*pi/2, as fdlibm's cos
-// computes it. Every product that feeds an addition or a subtraction is
-// rounded before it is used, so no target fuses the two.
-func Cos(x float64) float64 {
-	if highWord(x)&0x7fffffff <= 0x3fe921fb { // |x| ~<= pi/4
-		return kernelCos(x, 0)
-	}
-
-	n, y0, y1 := remPio2(x)
-
-	switch n & 3 {
-	case 0:
-		return kernelCos(y0, y1)
-	case 1:
-		return -kernelSin(y0, y1)
-	case 2:
-		return -kernelCos(y0, y1)
-	default:
-		return kernelSin(y0, y1)
-	}
-}
-
 // The constants of __ieee754_rem_pio2, __kernel_cos and __kernel_sin.
 var (
 	invpio2 = math.Float64frombits(0x3fe45f306dc9c883) // 53 bits of 2/pi
@@ -72,6 +50,28 @@ var npio2hw = [32]int32{
 	0x403dd85a, 0x403f6a7a, 0x40407e4c, 0x4041475c, 0x4042106c, 0x4042d97c,
 	0x4043a28c, 0x40446b9c, 0x404534ac, 0x4045fdbb, 0x4046c6cb, 0x40478fdb,
 	0x404858eb, 0x404921fb,
+}
+
+// Cos returns the cosine of x, for x from 0 to 2^19*pi/2, as fdlibm's cos
+// computes it. Every product that feeds an addition or a subtraction is
+// rounded before it is used, so no target fuses the two.
+func Cos(x float64) float64 {
+	if highWord(x)&0x7fffffff <= 0x3fe921fb { // |x| ~<= pi/4
+		return kernelCos(x, 0)
+	}
+
+	n, y0, y1 := remPio2(x)
+
+	switch n & 3 {
+	case 0:
+		return kernelCos(y0, y1)
+	case 1:
+		return -kernelSin(y0, y1)
+	case 2:
+		return -kernelCos(y0, y1)
+	default:
+		return kernelSin(y0, y1)
+	}
 }
 
 // remPio2 is __ieee754_rem_pio2 for pi/4 < x <= 2^19*pi/2. It returns n and

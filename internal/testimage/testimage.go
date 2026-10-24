@@ -18,28 +18,6 @@ const (
 	paletteSeed = 0xb1a5
 )
 
-// Components counts a hash's horizontal (X) and vertical (Y) components.
-type Components struct {
-	X, Y int
-}
-
-// String returns c as XxY, such as 4x3.
-func (c Components) String() string {
-	return fmt.Sprintf("%dx%d", c.X, c.Y)
-}
-
-// Case is one corpus entry.
-type Case struct {
-	ID         string
-	Components []Components
-	build      func() image.Image
-}
-
-// Image returns a new copy of the case's image on every call.
-func (c Case) Image() image.Image {
-	return c.build()
-}
-
 var (
 	small = []Components{
 		{1, 1}, {1, 2}, {2, 1}, {3, 3}, {4, 3}, {3, 4}, {5, 5}, {9, 1}, {1, 9}, {9, 9},
@@ -75,6 +53,28 @@ var (
 
 	typeSizes = []image.Point{{33, 41}, {100, 75}}
 )
+
+// Components counts a hash's horizontal (X) and vertical (Y) components.
+type Components struct {
+	X, Y int
+}
+
+// String returns c as XxY, such as 4x3.
+func (c Components) String() string {
+	return fmt.Sprintf("%dx%d", c.X, c.Y)
+}
+
+// Case is one corpus entry.
+type Case struct {
+	ID         string
+	Components []Components
+	build      func() image.Image
+}
+
+// Image returns a new copy of the case's image on every call.
+func (c Case) Image() image.Image {
+	return c.build()
+}
 
 // Cases returns the corpus in the order comparison.txt lists it.
 func Cases() []Case {

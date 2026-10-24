@@ -9,36 +9,6 @@ import (
 	"github.com/superiority-dev/blurhash/internal/testimage"
 )
 
-type sample struct {
-	id     string
-	img    image.Image
-	nx, ny int
-}
-
-// samples returns every corpus encode and 2000 random ones.
-func samples() []sample {
-	var out []sample
-
-	for _, c := range testimage.Cases() {
-		img := c.Image()
-		for _, comp := range c.Components {
-			out = append(out, sample{c.ID, img, comp.X, comp.Y})
-		}
-	}
-
-	r := rand.New(rand.NewPCG(0xb10b, 0))
-
-	// Sizes up to 40x40, each byte drawn from 2, 3, 5 or 256 evenly spaced
-	// levels: noise in a few values a channel, or over the full range.
-	for range 2000 {
-		w, h := 1+r.IntN(40), 1+r.IntN(40)
-		img := testimage.Random(r.Uint64(), w, h, []int{2, 3, 5, 256}[r.IntN(4)])
-		out = append(out, sample{"random", img, 1 + r.IntN(9), 1 + r.IntN(9)})
-	}
-
-	return out
-}
-
 // TestEncoderCoefficientsMatchesSlow requires one Encoder's coefficients to
 // lie within tolerance of slowCoefficients' over every sample, its cache and
 // buffers reused across sizes.
@@ -86,10 +56,6 @@ func TestEncodeConcurrent(t *testing.T) {
 	}
 }
 
-// fuzzEncoder is shared by every fuzz input a process runs, so its cache and
-// buffers see a mixed stream.
-var fuzzEncoder Encoder
-
 // FuzzEncode requires an Encoder's coefficients to lie within tolerance of
 // slowCoefficients', and Encode to return what Encoder.Encode returns, on
 // random images and component counts.
@@ -108,4 +74,38 @@ func FuzzEncode(f *testing.F) {
 			t.Fatalf("Encode returns %s, Encoder.Encode %s", got, want)
 		}
 	})
+}
+
+type sample struct {
+	id     string
+	img    image.Image
+	nx, ny int
+}
+
+// fuzzEncoder is shared by every fuzz input a process runs, so its cache and
+// buffers see a mixed stream.
+var fuzzEncoder Encoder
+
+// samples returns every corpus encode and 2000 random ones.
+func samples() []sample {
+	var out []sample
+
+	for _, c := range testimage.Cases() {
+		img := c.Image()
+		for _, comp := range c.Components {
+			out = append(out, sample{c.ID, img, comp.X, comp.Y})
+		}
+	}
+
+	r := rand.New(rand.NewPCG(0xb10b, 0))
+
+	// Sizes up to 40x40, each byte drawn from 2, 3, 5 or 256 evenly spaced
+	// levels: noise in a few values a channel, or over the full range.
+	for range 2000 {
+		w, h := 1+r.IntN(40), 1+r.IntN(40)
+		img := testimage.Random(r.Uint64(), w, h, []int{2, 3, 5, 256}[r.IntN(4)])
+		out = append(out, sample{"random", img, 1 + r.IntN(9), 1 + r.IntN(9)})
+	}
+
+	return out
 }

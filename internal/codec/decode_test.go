@@ -14,15 +14,6 @@ import (
 	"github.com/superiority-dev/blurhash/internal/testimage"
 )
 
-// nrgbaBytes returns img's pixels as NRGBA bytes, row by row.
-func nrgbaBytes(img image.Image) []uint8 {
-	b := img.Bounds()
-	out := image.NewNRGBA(image.Rect(0, 0, b.Dx(), b.Dy()))
-	draw.Draw(out, out.Rect, img, b.Min, draw.Src)
-
-	return out.Pix
-}
-
 // TestDecoderDraw requires Decoder.Draw to draw slowDecode's pixels byte for
 // byte, for every fixture hash at several sizes and punches, into NRGBA, RGBA
 // at an offset origin, and RGBA64.
@@ -161,7 +152,7 @@ func FuzzDraw(f *testing.F) {
 
 		// A difference is allowed only where the slow value is within
 		// decodeBound of a byte boundary.
-		var c [81][3]float64
+		var c [MaxComponents * MaxComponents][3]float64
 
 		nx, ny, _ := readColors(&c, hash, punch)
 		bound := decodeBound(c[:nx*ny])
@@ -191,11 +182,37 @@ func FuzzDraw(f *testing.F) {
 	})
 }
 
+// TestDrawHugePunch requires Draw to draw every pixel, without a panic, at a
+// punch large enough to overflow the sums.
+func TestDrawHugePunch(t *testing.T) {
+	for _, punch := range []float64{1e300, 1e306, -1e308, math.MaxFloat64} {
+		img := image.NewNRGBA(image.Rect(0, 0, 9, 7))
+		if err := Draw(img, "LEHV6nWB2yk8pyo0adR*.7kCMdnj", punch); err != nil {
+			t.Fatal(err)
+		}
+
+		for i := 3; i < len(img.Pix); i += 4 {
+			if img.Pix[i] != 255 {
+				t.Fatalf("punch %g: pixel %d not drawn", punch, i/4)
+			}
+		}
+	}
+}
+
+// nrgbaBytes returns img's pixels as NRGBA bytes, row by row.
+func nrgbaBytes(img image.Image) []uint8 {
+	b := img.Bounds()
+	out := image.NewNRGBA(image.Rect(0, 0, b.Dx(), b.Dy()))
+	draw.Draw(out, out.Rect, img, b.Min, draw.Src)
+
+	return out.Pix
+}
+
 // slowDecode draws hash into dst the plain way, which the Decoder is checked
 // against: each pixel summed straight from the formula, component by
 // component, rather than in two passes.
 func slowDecode(dst draw.Image, hash string, punch float64) error {
-	var c [81][3]float64
+	var c [MaxComponents * MaxComponents][3]float64
 
 	nx, ny, err := readColors(&c, hash, punch)
 	if err != nil {
@@ -247,23 +264,6 @@ func decodeBound(c [][3]float64) [3]float64 {
 	}
 
 	return out
-}
-
-// TestDrawHugePunch requires Draw to draw every pixel, without a panic, at a
-// punch large enough to overflow the sums.
-func TestDrawHugePunch(t *testing.T) {
-	for _, punch := range []float64{1e300, 1e306, -1e308, math.MaxFloat64} {
-		img := image.NewNRGBA(image.Rect(0, 0, 9, 7))
-		if err := Draw(img, "LEHV6nWB2yk8pyo0adR*.7kCMdnj", punch); err != nil {
-			t.Fatal(err)
-		}
-
-		for i := 3; i < len(img.Pix); i += 4 {
-			if img.Pix[i] != 255 {
-				t.Fatalf("punch %g: pixel %d not drawn", punch, i/4)
-			}
-		}
-	}
 }
 
 // slowPixel returns channel ch of the pixel at (x, y) of a w by h image,
