@@ -8,6 +8,11 @@ linters:
     - nilerr
     - nilnil
     - nilnesserr
+    - modernize
+    - intrange
+    - mirror
+    - usestdlibvars
+    - copyloopvar
   settings:
     govet:
       enable:

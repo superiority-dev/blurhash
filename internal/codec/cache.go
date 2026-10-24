@@ -31,15 +31,7 @@ const (
 
 // get returns cos(pi*k*p/n) for each k below count and p up to n/2.
 func (c *cache) get(n, count int) [][]float64 {
-	at := -1
-
-	for i, t := range c.tables {
-		if t.n == n {
-			at = i
-
-			break
-		}
-	}
+	at := slices.IndexFunc(c.tables, func(t table) bool { return t.n == n })
 
 	var t table
 	if at >= 0 {

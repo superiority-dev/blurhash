@@ -35,7 +35,7 @@ vuln:
 fma:
 	@dir=$$(mktemp -d); trap 'rm -rf "$$dir"' EXIT; \
 	for target in "GOARCH=arm64" "GOARCH=amd64 GOAMD64=v3"; do \
-		for pkg in . ./internal/codec ./internal/fdlibm; do \
+		for pkg in $$(go list ./...); do \
 			env $$target go build -o "$$dir/pkg.a" $$pkg; \
 			asm=$$(go tool objdump "$$dir/pkg.a"); \
 			fused=$$(grep -E '\bV?FN?M(ADD|SUB)' <<< "$$asm" || true); \
