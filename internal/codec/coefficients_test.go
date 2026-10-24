@@ -19,11 +19,10 @@ var update = flag.Bool("update", false, "rewrite the files in testdata from the 
 //go:embed testdata
 var testdata embed.FS
 
-// TestCoefficientBits compares a digest of every coefficient's bits, per corpus
-// image, with testdata/coefficients.txt. Hashes show an arithmetic change
-// only where it crosses a quantization boundary; this shows any change, and
-// run on each build target it shows whether the targets agree.
-func TestCoefficientBits(t *testing.T) {
+// TestEncoderCoefficientsBits requires the bits of every coefficient, from an
+// Encoder and from slowCoefficients, to match testdata/coefficients.txt on
+// every build target.
+func TestEncoderCoefficientsBits(t *testing.T) {
 	var lines []string
 
 	for _, c := range testimage.Cases() {

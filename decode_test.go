@@ -16,7 +16,13 @@ const (
 	hash1x1 = "000000"
 )
 
-func TestComponentsErrors(t *testing.T) {
+func TestComponents(t *testing.T) {
+	if x, y, err := Components(hash4x3); x != 4 || y != 3 || err != nil {
+		t.Errorf("Components: %d, %d, %v; want 4, 3, nil", x, y, err)
+	}
+}
+
+func TestDecodeInvalidHash(t *testing.T) {
 	for _, hash := range []string{
 		"",
 		"00000",      // shorter than any hash
@@ -32,10 +38,6 @@ func TestComponentsErrors(t *testing.T) {
 		if _, err := Decode(hash, 4, 4, 1); !errors.Is(err, ErrInvalidHash) {
 			t.Errorf("Decode(%q): error %v, want ErrInvalidHash", hash, err)
 		}
-	}
-
-	if x, y, err := Components(hash4x3); x != 4 || y != 3 || err != nil {
-		t.Errorf("Components: %d, %d, %v; want 4, 3, nil", x, y, err)
 	}
 }
 
@@ -53,7 +55,7 @@ func TestDecodeErrors(t *testing.T) {
 	}
 }
 
-func TestDecodeAllocs(t *testing.T) {
+func TestDecodeDrawAllocs(t *testing.T) {
 	dst := image.NewNRGBA(image.Rect(0, 0, 32, 32))
 
 	var d Decoder
@@ -88,8 +90,9 @@ func TestDecodeNonFinitePunch(t *testing.T) {
 	}
 }
 
-// A non-square size and a punch other than 1, so a swapped width and height
-// or a dropped punch shows.
+// TestDecodeMatchesDraw requires Decode, Decoder.Decode, DecodeDraw and
+// Decoder.DecodeDraw to draw what codec.Draw draws, at a size that is not
+// square and a punch other than 1.
 func TestDecodeMatchesDraw(t *testing.T) {
 	want := image.NewNRGBA(image.Rect(0, 0, 7, 5))
 	_ = codec.Draw(want, hash4x3, 1.5)

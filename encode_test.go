@@ -40,8 +40,9 @@ func TestEncodeErrors(t *testing.T) {
 	}
 }
 
-// Every hash that differs from comparison.txt must be listed in
-// testdata/differences.txt, so a new difference and a vanished one both fail.
+// TestEncodeComparison requires Encode and Encoder.Encode to agree on every
+// corpus hash, and the hashes that differ from comparison.txt to be exactly
+// those in testdata/differences.txt.
 func TestEncodeComparison(t *testing.T) {
 	file, err := testimage.Comparisons()
 	if err != nil {
@@ -104,10 +105,10 @@ func TestEncodeAllocs(t *testing.T) {
 	}
 }
 
-// Encode reads YCbCr planes directly, so it must panic wherever At does
-// instead of reading a byte outside the image: on the chroma planes
-// NewYCbCr makes too small, and on planes one byte short with that byte
-// still in capacity.
+// TestEncodeYCbCrPanics requires Encode to panic wherever At panics on a
+// YCbCr image, never reading a byte outside it: on the chroma planes NewYCbCr
+// makes too small, and on planes one byte short with that byte still in
+// capacity.
 func TestEncodeYCbCrPanics(t *testing.T) {
 	shortY := image.NewYCbCr(image.Rect(0, 0, 8, 4), image.YCbCrSubsampleRatio444)
 	shortY.Y = shortY.Y[:len(shortY.Y)-1]

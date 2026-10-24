@@ -38,10 +38,10 @@ func rational(num, den int64) float64 {
 	return f
 }
 
-// TestLinear checks each entry is the sRGB-to-linear value of its byte,
-// correctly rounded: v/3294.6 = 5v/16473 up to byte 10, where v/255 <= 0.04045,
-// and ((v/255+0.055)/1.055)^2.4 = ((40v+561)/10761)^(12/5) above.
-func TestLinear(t *testing.T) {
+// TestLinearExact requires each entry to be the sRGB-to-linear value of its
+// byte, correctly rounded: v/3294.6 = 5v/16473 up to byte 10, where v/255 <=
+// 0.04045, and ((v/255+0.055)/1.055)^2.4 = ((40v+561)/10761)^(12/5) above.
+func TestLinearExact(t *testing.T) {
 	for v := range int64(256) {
 		want := rational(5*v, 16473)
 		if v > 10 {
@@ -54,9 +54,10 @@ func TestLinear(t *testing.T) {
 	}
 }
 
-// TestThresholds checks each entry is the linear value at which the inverse
-// curve reaches k-0.5, correctly rounded: (k-0.5)/3294.6 = 5(2k-1)/32946 up to
-// k = 10, on the linear branch, and ((40k+541)/10761)^(12/5) above.
+// TestThresholds requires each entry to be the linear value at which the
+// inverse curve reaches k-0.5, correctly rounded: (k-0.5)/3294.6 =
+// 5(2k-1)/32946 up to k = 10, on the linear branch, and
+// ((40k+541)/10761)^(12/5) above.
 func TestThresholds(t *testing.T) {
 	for k := int64(1); k <= 255; k++ {
 		want := rational(5*(2*k-1), 32946)
@@ -70,8 +71,8 @@ func TestThresholds(t *testing.T) {
 	}
 }
 
-// TestLinearFormula bounds the gap between the table and the float64 formula
-// it replaces, whose own rounding before the power reaches 7 ulp.
+// TestLinearFormula requires each entry to lie within 8 ulp of the float64
+// formula it replaces, whose own rounding before the power reaches 7 ulp.
 func TestLinearFormula(t *testing.T) {
 	for v := range 256 {
 		f := float64(v) / 255
@@ -88,7 +89,7 @@ func TestLinearFormula(t *testing.T) {
 	}
 }
 
-func TestToSRGB(t *testing.T) {
+func TestToSRGBBoundaries(t *testing.T) {
 	for k := 1; k <= 255; k++ {
 		if got := toSRGB(thresholds[k-1]); got != k {
 			t.Errorf("toSRGB(thresholds[%d]) = %d, want %d", k-1, got, k)
@@ -115,8 +116,8 @@ func searchSRGB(v float64) int {
 	return sort.Search(len(thresholds), func(k int) bool { return thresholds[k] > v })
 }
 
-// TestToSRGBSearch checks toSRGB against searchSRGB at every threshold, one
-// ulp either side of it, every cell edge and random values.
+// TestToSRGBSearch requires toSRGB to agree with searchSRGB at every
+// threshold, one ulp either side of it, every cell edge and random values.
 func TestToSRGBSearch(t *testing.T) {
 	var vs []float64
 
@@ -147,7 +148,7 @@ func TestToSRGBSearch(t *testing.T) {
 	}
 }
 
-// TestCells checks no cell holds more than two thresholds.
+// TestCells requires no cell to hold more than two thresholds.
 func TestCells(t *testing.T) {
 	for k := range cells {
 		lo, hi := float64(k)/cells, float64(k+1)/cells

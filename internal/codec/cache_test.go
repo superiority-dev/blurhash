@@ -5,9 +5,11 @@ import (
 	"testing"
 )
 
-// TestCache checks get against cosine over a stream of sizes, and the
-// cache's bookkeeping after every call.
-func TestCache(t *testing.T) {
+// TestCacheGet requires get to return cosine's values bit for bit and to
+// reuse a table it has cached, and the cache to stay within cacheSlots and
+// cacheFloats with a true float count, over sizes that evict tables and pass
+// the budget.
+func TestCacheGet(t *testing.T) {
 	var c cache
 
 	// Tiny and odd sizes; 32 again while it is cached; more sizes than

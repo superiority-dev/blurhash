@@ -23,10 +23,10 @@ func nrgbaBytes(img image.Image) []uint8 {
 	return out.Pix
 }
 
-// TestDecoderPixels holds the Decoder's pixels to slowDecode's, byte for byte,
-// over every fixture hash into three destination types, the hashes taking the
-// 25 pairs of the sizes and punches below in turn.
-func TestDecoderPixels(t *testing.T) {
+// TestDecoderDraw requires Decoder.Draw to draw slowDecode's pixels byte for
+// byte, for every fixture hash at several sizes and punches, into NRGBA, RGBA
+// at an offset origin, and RGBA64.
+func TestDecoderDraw(t *testing.T) {
 	var d Decoder
 
 	// Square, single-pixel, odd and thumbnail sizes; punches either side of 1,
@@ -73,9 +73,9 @@ func TestDecoderPixels(t *testing.T) {
 	t.Logf("%d decodes equal slowDecode's", n)
 }
 
-// TestDecodeConcurrent runs Draw from 8 goroutines over the fixture hashes
-// and compares every image with slowDecode's after the last call.
-func TestDecodeConcurrent(t *testing.T) {
+// TestDrawConcurrent requires Draw to draw slowDecode's images when called
+// from several goroutines at once.
+func TestDrawConcurrent(t *testing.T) {
 	file, err := testimage.Comparisons()
 	if err != nil {
 		t.Fatal(err)
@@ -125,7 +125,10 @@ func TestDecodeConcurrent(t *testing.T) {
 	}
 }
 
-func FuzzDecode(f *testing.F) {
+// FuzzDraw requires Draw to fail only with ErrInvalidHash or ErrInvalidPunch,
+// to draw slowDecode's pixels except within decodeBound of a byte boundary,
+// and every hash it draws to re-encode with the same components.
+func FuzzDraw(f *testing.F) {
 	// The usual example, the smallest hash, the 9x9 size digit with too few
 	// characters, and 2x1.
 	for _, h := range []string{"LEHV6nWB2yk8pyo0adR*.7kCMdnj", "000000", "|~Lqe9", "10Lqe9fQ"} {
@@ -246,9 +249,9 @@ func decodeBound(c [][3]float64) [3]float64 {
 	return out
 }
 
-// TestDecodeHugePunch checks that a punch large enough to overflow the sums
-// still draws every pixel, without a panic.
-func TestDecodeHugePunch(t *testing.T) {
+// TestDrawHugePunch requires Draw to draw every pixel, without a panic, at a
+// punch large enough to overflow the sums.
+func TestDrawHugePunch(t *testing.T) {
 	for _, punch := range []float64{1e300, 1e306, -1e308, math.MaxFloat64} {
 		img := image.NewNRGBA(image.Rect(0, 0, 9, 7))
 		if err := Draw(img, "LEHV6nWB2yk8pyo0adR*.7kCMdnj", punch); err != nil {

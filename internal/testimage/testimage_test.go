@@ -2,6 +2,8 @@ package testimage
 
 import "testing"
 
+// TestComparisonMatchesCases requires comparison.txt to be made from today's
+// cases: the same fingerprint, count, and IDs and components in order.
 func TestComparisonMatchesCases(t *testing.T) {
 	file, err := Comparisons()
 	if err != nil {

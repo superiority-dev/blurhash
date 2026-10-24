@@ -8,8 +8,8 @@ import (
 	"testing"
 )
 
-// TestPremultiply holds premultiply to color.NRGBA's RGBA method at every
-// value and alpha.
+// TestPremultiply requires premultiply to match color.NRGBA's RGBA method at
+// every value and alpha.
 func TestPremultiply(t *testing.T) {
 	for a := range 256 {
 		for v := range 256 {
@@ -21,10 +21,10 @@ func TestPremultiply(t *testing.T) {
 	}
 }
 
-// TestLinearRowYCbCr checks linearRow's direct YCbCr read against At at
-// every subsampling ratio, including sub-images whose origin is not a
-// multiple of the chroma block.
-func TestLinearRowYCbCr(t *testing.T) {
+// TestLinearRow requires linearRow's YCbCr read to equal At's, and the
+// coefficients to match slowCoefficients', at every subsampling ratio,
+// including sub-images whose origin is not a multiple of the chroma block.
+func TestLinearRow(t *testing.T) {
 	ratios := []image.YCbCrSubsampleRatio{
 		image.YCbCrSubsampleRatio444, image.YCbCrSubsampleRatio422, image.YCbCrSubsampleRatio420,
 		image.YCbCrSubsampleRatio440, image.YCbCrSubsampleRatio411, image.YCbCrSubsampleRatio410,
