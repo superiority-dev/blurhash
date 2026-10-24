@@ -37,7 +37,8 @@ func TestEncodeErrors(t *testing.T) {
 // TestEncodeSize requires Encode and Encoder.Encode to return
 // ErrInvalidDimensions for an image with no pixels even when its other side is
 // too large, ErrImageTooLarge past MaxSize or for a side that does not fit in
-// an int, and no error at MaxSize.
+// an int, and no error at MaxSize; and an Encoder's MaxSize field to replace
+// that limit, with zero or less keeping it.
 func TestEncodeSize(t *testing.T) {
 	var e Encoder
 
@@ -60,6 +61,24 @@ func TestEncodeSize(t *testing.T) {
 
 		if _, err := e.Encode(4, 3, c.r); !errors.Is(err, c.want) {
 			t.Errorf("Encoder.Encode of %v: error %v, want %v", c.r, err, c.want)
+		}
+	}
+
+	for _, c := range []struct {
+		max  int
+		r    image.Rectangle
+		want error
+	}{
+		{8, image.Rect(0, 0, 8, 8), nil},
+		{8, image.Rect(0, 0, 9, 1), ErrImageTooLarge},
+		{8, image.Rect(0, 0, 1, 9), ErrImageTooLarge},
+		{MaxSize + 1, image.Rect(0, 0, MaxSize+1, 1), nil},
+		{-1, image.Rect(0, 0, MaxSize, 1), nil},
+		{-1, image.Rect(0, 0, MaxSize+1, 1), ErrImageTooLarge},
+	} {
+		e := Encoder{MaxSize: c.max}
+		if _, err := e.Encode(4, 3, c.r); !errors.Is(err, c.want) {
+			t.Errorf("Encoder{MaxSize: %d}.Encode of %v: error %v, want %v", c.max, c.r, err, c.want)
 		}
 	}
 }

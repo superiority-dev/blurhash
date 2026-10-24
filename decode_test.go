@@ -58,8 +58,9 @@ func TestDecodeErrors(t *testing.T) {
 
 // TestDecodeSize requires Decode and Decoder.Decode to return
 // ErrInvalidDimensions for a size with no pixels even when its other side is
-// too large, ErrImageTooLarge past MaxSize, and no error at MaxSize; and
-// DecodeDraw and Decoder.DecodeDraw the same limit on any bounds.
+// too large, ErrImageTooLarge past MaxSize, and no error at MaxSize;
+// DecodeDraw and Decoder.DecodeDraw the same limit on any bounds; and a
+// Decoder's MaxSize field to replace that limit, with zero or less keeping it.
 func TestDecodeSize(t *testing.T) {
 	var d Decoder
 
@@ -100,6 +101,28 @@ func TestDecodeSize(t *testing.T) {
 
 		if err := d.DecodeDraw(wide{c.r}, hash1x1, 1); !errors.Is(err, c.want) {
 			t.Errorf("Decoder.DecodeDraw into %v: error %v, want %v", c.r, err, c.want)
+		}
+	}
+
+	for _, c := range []struct {
+		max  int
+		s    image.Point
+		want error
+	}{
+		{8, image.Pt(8, 8), nil},
+		{8, image.Pt(9, 1), ErrImageTooLarge},
+		{8, image.Pt(1, 9), ErrImageTooLarge},
+		{MaxSize + 1, image.Pt(MaxSize+1, 1), nil},
+		{-1, image.Pt(MaxSize, 1), nil},
+		{-1, image.Pt(MaxSize+1, 1), ErrImageTooLarge},
+	} {
+		d := Decoder{MaxSize: c.max}
+		if _, err := d.Decode(hash1x1, c.s.X, c.s.Y, 1); !errors.Is(err, c.want) {
+			t.Errorf("Decoder{MaxSize: %d}.Decode at %v: error %v, want %v", c.max, c.s, err, c.want)
+		}
+
+		if err := d.DecodeDraw(wide{image.Rectangle{Max: c.s}}, hash1x1, 1); !errors.Is(err, c.want) {
+			t.Errorf("Decoder{MaxSize: %d}.DecodeDraw into %v: error %v, want %v", c.max, c.s, err, c.want)
 		}
 	}
 }

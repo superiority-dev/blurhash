@@ -12,6 +12,11 @@ import (
 // value is ready to use. A Decoder should be used by one goroutine at a time;
 // [Decode] and [DecodeDraw] are safe for concurrent use.
 type Decoder struct {
+	// MaxSize is the largest width or height Decode and DecodeDraw accept;
+	// zero or less means the package's [MaxSize]. Decode's image takes 4 bytes
+	// a pixel, so its memory grows with the square of this limit.
+	MaxSize int
+
 	d codec.Decoder
 }
 
@@ -22,7 +27,7 @@ func NewDecoder() *Decoder {
 
 // Decode returns hash drawn as a width by height image, as [Decode] does.
 func (d *Decoder) Decode(hash string, width, height int, punch float64) (*image.NRGBA, error) {
-	img, err := newImage(width, height)
+	img, err := newImage(width, height, sizeLimit(d.MaxSize))
 	if err != nil {
 		return nil, err
 	}
@@ -36,7 +41,7 @@ func (d *Decoder) Decode(hash string, width, height int, punch float64) (*image.
 
 // DecodeDraw decodes hash into dst, as [DecodeDraw] does.
 func (d *Decoder) DecodeDraw(dst draw.Image, hash string, punch float64) error {
-	if err := checkSize(dst.Bounds()); err != nil {
+	if err := checkSize(dst.Bounds(), sizeLimit(d.MaxSize)); err != nil {
 		return err
 	}
 
@@ -58,7 +63,7 @@ func Components(hash string) (x, y int, err error) {
 // and a negative punch inverts it. Other decoders may adjust punch before
 // applying it, so the same value can draw differently.
 func Decode(hash string, width, height int, punch float64) (*image.NRGBA, error) {
-	img, err := newImage(width, height)
+	img, err := newImage(width, height, MaxSize)
 	if err != nil {
 		return nil, err
 	}
@@ -74,20 +79,20 @@ func Decode(hash string, width, height int, punch float64) (*image.NRGBA, error)
 // [Decode], or returns [ErrImageTooLarge], [ErrInvalidHash] or
 // [ErrInvalidPunch]. It is safe for concurrent use.
 func DecodeDraw(dst draw.Image, hash string, punch float64) error {
-	if err := checkSize(dst.Bounds()); err != nil {
+	if err := checkSize(dst.Bounds(), MaxSize); err != nil {
 		return err
 	}
 
 	return codec.Draw(dst, hash, punch)
 }
 
-func newImage(width, height int) (*image.NRGBA, error) {
+func newImage(width, height, limit int) (*image.NRGBA, error) {
 	if width <= 0 || height <= 0 {
 		return nil, fmt.Errorf("%w: got %dx%d", ErrInvalidDimensions, width, height)
 	}
 
 	r := image.Rect(0, 0, width, height)
-	if err := checkSize(r); err != nil {
+	if err := checkSize(r, limit); err != nil {
 		return nil, err
 	}
 
