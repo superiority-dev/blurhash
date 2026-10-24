@@ -30,10 +30,10 @@ func (e *Encoder) Encode(xComponents, yComponents int, img image.Image) (string,
 }
 
 // Encode returns the BlurHash of img using xComponents horizontal and
-// yComponents vertical components, each between 1 and 9. It is safe for
-// concurrent use.
+// yComponents vertical components, or [ErrInvalidComponents] or
+// [ErrInvalidDimensions]. It is safe for concurrent use.
 //
-// Colour is the premultiplied value [image/color.Color.RGBA] reports, cut to
+// Color is the premultiplied value [image/color.Color.RGBA] reports, cut to
 // 8 bits; alpha is otherwise ignored.
 func Encode(xComponents, yComponents int, img image.Image) (string, error) {
 	if err := check(xComponents, yComponents, img); err != nil {

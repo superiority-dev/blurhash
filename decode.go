@@ -40,16 +40,17 @@ func (d *Decoder) DecodeDraw(dst draw.Image, hash string, punch float64) error {
 }
 
 // Components returns the numbers of horizontal and vertical components
-// hash encodes.
+// hash encodes, or [ErrInvalidHash].
 func Components(hash string) (x, y int, err error) {
 	return codec.Components(hash)
 }
 
-// Decode returns hash drawn as a width by height image. It is safe for
-// concurrent use.
+// Decode returns hash drawn as a width by height image, or
+// [ErrInvalidDimensions], [ErrInvalidHash] or [ErrInvalidPunch]. It is safe
+// for concurrent use.
 //
 // Punch scales the contrast: 1 draws the hash as encoded, larger values
-// strengthen it, smaller ones soften it, 0 leaves only the average colour
+// strengthen it, smaller ones soften it, 0 leaves only the average color
 // and a negative punch inverts it. Other decoders may adjust punch before
 // applying it, so the same value can draw differently.
 func Decode(hash string, width, height int, punch float64) (*image.NRGBA, error) {
@@ -66,7 +67,8 @@ func Decode(hash string, width, height int, punch float64) (*image.NRGBA, error)
 }
 
 // DecodeDraw decodes hash into dst, filling its bounds, with punch as for
-// [Decode]. It is safe for concurrent use.
+// [Decode], or returns [ErrInvalidHash] or [ErrInvalidPunch]. It is safe for
+// concurrent use.
 func DecodeDraw(dst draw.Image, hash string, punch float64) error {
 	return codec.Draw(dst, hash, punch)
 }

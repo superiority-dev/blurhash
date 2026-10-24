@@ -20,7 +20,7 @@ type Decoder struct {
 }
 
 // Draw decodes hash into dst, filling its bounds, with the components'
-// contrast scaled by punch.
+// contrast scaled by punch, or returns [ErrInvalidHash] or [ErrInvalidPunch].
 func (d *Decoder) Draw(dst draw.Image, hash string, punch float64) error {
 	nx, ny, err := readColors(&d.colors, hash, punch)
 	if err != nil {
@@ -87,8 +87,8 @@ func (d *Decoder) sumRows(nx, ny int, cosY [][]float64, y int) {
 }
 
 // Draw decodes hash into dst, filling its bounds, with the components'
-// contrast scaled by punch, using a Decoder from a pool. It is safe for
-// concurrent use.
+// contrast scaled by punch, using a Decoder from a pool, or returns
+// [ErrInvalidHash] or [ErrInvalidPunch]. It is safe for concurrent use.
 func Draw(dst draw.Image, hash string, punch float64) error {
 	d := decoders.Get().(*Decoder)
 	defer decoders.Put(d)
@@ -97,7 +97,7 @@ func Draw(dst draw.Image, hash string, punch float64) error {
 }
 
 // Components returns the numbers of horizontal and vertical components
-// hash encodes.
+// hash encodes, or [ErrInvalidHash].
 func Components(hash string) (x, y int, err error) {
 	if len(hash) < acAt {
 		return 0, 0, fmt.Errorf("%w: %d characters, need at least 6", ErrInvalidHash, len(hash))
@@ -138,7 +138,7 @@ func readColors(dst *[MaxComponents * MaxComponents][3]float64, hash string, pun
 
 	dc, ok := readBase83(hash[dcAt:acAt])
 	if !ok || dc > maxDC {
-		return 0, 0, fmt.Errorf("%w: average colour %q", ErrInvalidHash, hash[dcAt:acAt])
+		return 0, 0, fmt.Errorf("%w: average color %q", ErrInvalidHash, hash[dcAt:acAt])
 	}
 
 	dst[0] = [3]float64{linear[dc>>16], linear[dc>>8&0xff], linear[dc&0xff]}

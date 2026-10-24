@@ -38,8 +38,10 @@ saved by `image/jpeg`. A result is the mean time of 1 encode across all 6.
 
 Every implementation ran alone in its own cloud sandbox, once per architecture:
 
-- arm64: Arm Neoverse V2, 1 vCPU, 2 GB RAM
-- amd64: 1 vCPU, 2 GB RAM
+- arm64: Arm Neoverse V2, 4 vCPU, 8 GiB RAM
+- amd64: 4 vCPU, 8 GiB RAM
+
+Each run was limited to 2 of the 4 CPUs.
 
 | implementation | version | how it ran |
 |---|---|---|
@@ -51,9 +53,6 @@ Every implementation ran alone in its own cloud sandbox, once per architecture:
 | [woltapp/blurhash](https://www.npmjs.com/package/blurhash), TypeScript | 2.0.5 | installed from npm, Node 22.23.3 |
 | [halcy/blurhash-python](https://pypi.org/project/blurhash/) | 1.1.5 | installed from PyPI, Python 3.13.16 |
 
-On the build these tables used, the same code built twice timed up to 0.71%
-apart on arm64 and 0.87% on amd64. Every ratio below is 1.45x or more.
-
 ## Encoding
 
 From RGBA. This package's time, then every other implementation as a multiple
@@ -63,27 +62,27 @@ of it.
 
 | size | components | this package | bbrks | buckket | C | blurhash-python | TypeScript | halcy |
 |---|---|---|---|---|---|---|---|---|
-| 32 px | 4x4 | 4.10 µs | 4.1x | 10.0x | 99.5x | 139.4x | 496.2x | 1,124.5x |
-| 32 px | 4x3 | 3.97 µs | 3.2x | 8.5x | 76.9x | 115.7x | 382.6x | 893.8x |
-| 100 px | 4x3 | 33.47 µs | 3.1x | 9.1x | 89.9x | 131.4x | 432.7x | 1,026.8x |
-| 100 px | 9x9 | 54.03 µs | 12.7x | 26.7x | 385.7x | 447.9x | 1,891.2x | 3,913.6x |
-| 1000x750 | 4x3 | 3.52 ms | 2.9x | 8.7x | 88.5x | 127.9x | 428.9x | 1,071.3x |
-| 1000x750 | 9x9 | 5.23 ms | 13.1x | 27.8x | 407.2x | 471.0x | 2,023.0x | 4,285.9x |
-| 1920x1080 | 4x3 | 9.96 ms | 2.8x | 8.5x | 85.8x | 125.8x | - | - |
-| 1920x1080 | 9x9 | 14.45 ms | 13.0x | 27.9x | 405.7x | 470.1x | - | - |
+| 32 px | 4x4 | 4.09 µs | 4.0x | 10.0x | 99.4x | 139.9x | 492.1x | 1,131.2x |
+| 32 px | 4x3 | 3.96 µs | 3.2x | 8.5x | 76.9x | 116.1x | 376.3x | 896.0x |
+| 100 px | 4x3 | 33.44 µs | 3.1x | 9.1x | 90.0x | 131.7x | 431.0x | 1,026.6x |
+| 100 px | 9x9 | 53.68 µs | 12.7x | 26.9x | 387.5x | 451.4x | 1,902.3x | 3,935.4x |
+| 1000x750 | 4x3 | 3.53 ms | 2.9x | 8.7x | 87.9x | 127.5x | 427.7x | 1,069.0x |
+| 1000x750 | 9x9 | 5.22 ms | 13.1x | 28.0x | 406.8x | 472.4x | 2,027.5x | 4,312.7x |
+| 1920x1080 | 4x3 | 10.04 ms | 2.8x | 8.5x | 84.9x | 124.9x | - | - |
+| 1920x1080 | 9x9 | 14.46 ms | 13.0x | 27.9x | 403.9x | 469.8x | - | - |
 
 **amd64**
 
 | size | components | this package | bbrks | buckket | C | blurhash-python | TypeScript | halcy |
 |---|---|---|---|---|---|---|---|---|
-| 32 px | 4x4 | 5.62 µs | 3.8x | 8.8x | 60.6x | 101.9x | 430.9x | 1,059.6x |
-| 32 px | 4x3 | 5.30 µs | 3.1x | 7.7x | 48.4x | 87.3x | 338.3x | 867.8x |
-| 100 px | 4x3 | 37.28 µs | 3.7x | 10.0x | 67.8x | 117.9x | 468.5x | 1,219.4x |
-| 100 px | 9x9 | 62.55 µs | 14.3x | 26.2x | 281.0x | 372.9x | 1,932.2x | 4,382.5x |
-| 1000x750 | 4x3 | 3.54 ms | 3.6x | 10.3x | 73.9x | 127.6x | 500.2x | 1,372.8x |
-| 1000x750 | 9x9 | 5.20 ms | 16.6x | 33.1x | 345.3x | 457.0x | 2,348.6x | 5,524.2x |
-| 1920x1080 | 4x3 | 9.73 ms | 3.6x | 10.4x | 73.7x | 128.9x | - | - |
-| 1920x1080 | 9x9 | 14.29 ms | 16.7x | 34.4x | 344.9x | 459.8x | - | - |
+| 32 px | 4x4 | 5.56 µs | 3.9x | 8.8x | 61.3x | 102.6x | 429.5x | 1,073.5x |
+| 32 px | 4x3 | 5.27 µs | 3.1x | 7.8x | 48.5x | 87.6x | 336.2x | 878.1x |
+| 100 px | 4x3 | 36.84 µs | 3.8x | 10.1x | 68.7x | 119.8x | 468.2x | 1,212.3x |
+| 100 px | 9x9 | 62.14 µs | 14.5x | 26.4x | 282.9x | 377.4x | 1,945.2x | 4,407.6x |
+| 1000x750 | 4x3 | 3.49 ms | 3.7x | 10.6x | 74.7x | 129.3x | 505.5x | 1,400.4x |
+| 1000x750 | 9x9 | 5.17 ms | 16.7x | 33.5x | 345.3x | 464.1x | 2,358.6x | 5,543.0x |
+| 1920x1080 | 4x3 | 9.68 ms | 3.6x | 10.7x | 74.1x | 129.8x | - | - |
+| 1920x1080 | 9x9 | 14.20 ms | 16.9x | 35.1x | 345.9x | 462.5x | - | - |
 
 ## Encoding YCbCr
 
@@ -91,44 +90,57 @@ From `*image.YCbCr` at 4:2:0, as `image/jpeg` returns it.
 
 | size | components | arm64: this package | bbrks | buckket | amd64: this package | bbrks | buckket |
 |---|---|---|---|---|---|---|---|
-| 32 px | 4x4 | 5.91 µs | 4.2x | 7.6x | 7.54 µs | 4.1x | 7.0x |
-| 32 px | 4x3 | 5.78 µs | 3.6x | 6.5x | 7.23 µs | 3.6x | 6.1x |
-| 100 px | 4x3 | 50.75 µs | 3.6x | 6.8x | 55.00 µs | 4.2x | 7.3x |
-| 100 px | 9x9 | 71.55 µs | 10.7x | 20.4x | 80.17 µs | 12.3x | 20.9x |
-| 1000x750 | 4x3 | 5.35 ms | 3.4x | 6.5x | 5.49 ms | 4.0x | 7.3x |
-| 1000x750 | 9x9 | 7.01 ms | 10.9x | 21.4x | 7.13 ms | 13.5x | 25.5x |
-| 1920x1080 | 4x3 | 15.44 ms | 3.2x | 6.2x | 15.02 ms | 4.1x | 7.3x |
-| 1920x1080 | 9x9 | 19.82 ms | 10.6x | 20.6x | 19.63 ms | 13.6x | 25.4x |
+| 32 px | 4x4 | 5.90 µs | 4.1x | 7.6x | 7.63 µs | 4.1x | 6.9x |
+| 32 px | 4x3 | 5.77 µs | 3.6x | 6.5x | 7.34 µs | 3.5x | 6.1x |
+| 100 px | 4x3 | 51.08 µs | 3.5x | 6.7x | 55.63 µs | 4.2x | 7.2x |
+| 100 px | 9x9 | 71.20 µs | 10.7x | 20.6x | 80.88 µs | 12.4x | 20.7x |
+| 1000x750 | 4x3 | 5.34 ms | 3.4x | 6.5x | 5.52 ms | 4.1x | 7.3x |
+| 1000x750 | 9x9 | 7.01 ms | 10.9x | 21.2x | 7.22 ms | 13.3x | 24.8x |
+| 1920x1080 | 4x3 | 15.45 ms | 3.2x | 6.2x | 15.17 ms | 4.1x | 7.3x |
+| 1920x1080 | 9x9 | 19.82 ms | 10.6x | 20.7x | 19.94 ms | 13.3x | 25.8x |
 
 ## Decoding
 
-The original C code's hashes of the photos, as a multiple of this package's
-time.
+The original C code's hashes of the photos. This package's time, then every
+other implementation as a multiple of it.
 
-| size | components | arm64: bbrks | buckket | amd64: bbrks | buckket |
-|---|---|---|---|---|---|
-| 32 px | 4x4 | 2.09x | 28.7x | 2.59x | 37.6x |
-| 32 px | 4x3 | 1.72x | 24.8x | 2.11x | 31.6x |
-| 100 px | 4x3 | 1.52x | 24.3x | 1.91x | 31.0x |
-| 100 px | 9x9 | 6.13x | 84.4x | 7.95x | 108.6x |
-| 1000x750 | 4x3 | 1.45x | 23.7x | 1.89x | 32.2x |
-| 1000x750 | 9x9 | 6.11x | 76.3x | 7.80x | 106.8x |
+**arm64**
+
+| size | components | this package | bbrks | buckket |
+|---|---|---|---|---|
+| 32 px | 4x4 | 9.78 µs | 2.07x | 28.7x |
+| 32 px | 4x3 | 9.56 µs | 1.71x | 24.8x |
+| 100 px | 4x3 | 97.01 µs | 1.51x | 24.1x |
+| 100 px | 9x9 | 119.87 µs | 6.07x | 83.5x |
+| 1000x750 | 4x3 | 10.06 ms | 1.43x | 23.7x |
+| 1000x750 | 9x9 | 11.96 ms | 6.11x | 76.0x |
+
+**amd64**
+
+| size | components | this package | bbrks | buckket |
+|---|---|---|---|---|
+| 32 px | 4x4 | 11.37 µs | 2.73x | 37.3x |
+| 32 px | 4x3 | 11.19 µs | 2.19x | 31.8x |
+| 100 px | 4x3 | 112.57 µs | 1.97x | 30.4x |
+| 100 px | 9x9 | 137.02 µs | 8.48x | 107.0x |
+| 1000x750 | 4x3 | 10.93 ms | 1.97x | 32.2x |
+| 1000x750 | 9x9 | 13.85 ms | 8.46x | 105.3x |
 
 ## Agreement with the original C code
 
-On 9,739 hashes of this package's test images, from the same RGB pixels as the
+On 9,719 hashes of this package's test images, from the same RGB pixels as the
 timings, how many each implementation gives exactly as the original C code
 does:
 
 | implementation | arm64 | amd64 |
 |---|---|---|
-| woltapp/blurhash, C | 9,739 | 9,739 |
-| blurhash-python | 9,736 | 9,739 |
-| halcy/blurhash-python | 9,547 | 9,547 |
-| buckket/go-blurhash | 9,513 | 9,517 |
-| this package | 9,508 | 9,508 |
-| woltapp/blurhash, TypeScript | 9,418 | 9,418 |
-| bbrks/go-blurhash | 9,053 | 9,057 |
+| woltapp/blurhash, C | 9,719 | 9,719 |
+| blurhash-python | 9,716 | 9,719 |
+| halcy/blurhash-python | 9,527 | 9,527 |
+| buckket/go-blurhash | 9,493 | 9,497 |
+| this package | 9,488 | 9,488 |
+| woltapp/blurhash, TypeScript | 9,403 | 9,403 |
+| bbrks/go-blurhash | 9,033 | 9,037 |
 
 This counts matches with the original, not correctness. The original matches
 itself by definition, and blurhash-python wraps a copy of the same C code, built
