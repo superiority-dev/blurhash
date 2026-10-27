@@ -10,6 +10,13 @@ import (
 	"slices"
 )
 
+// pair formats two counts as 4x3 or 100x75; noiseID names a noise case by
+// seed and size.
+const (
+	pair    = "%dx%d"
+	noiseID = "noise/%d/%v"
+)
+
 // Fixed seeds for the random generator. The values are arbitrary; changing one
 // changes the test cases built from it, so the fixtures must be regenerated.
 const (
@@ -61,7 +68,7 @@ type Components struct {
 
 // String returns c as XxY, such as 4x3.
 func (c Components) String() string {
-	return fmt.Sprintf("%dx%d", c.X, c.Y)
+	return fmt.Sprintf(pair, c.X, c.Y)
 }
 
 // Case is one corpus entry.
@@ -124,7 +131,7 @@ func Cases() []Case {
 	add("smooth/1000x750", image.Pt(1000, 750), smooth(image.Pt(1000, 750)))
 
 	for i, s := range noiseSizes {
-		add(fmt.Sprintf("noise/%d/%v", i, size(s)), s, noisy(s, uint64(i)))
+		add(fmt.Sprintf(noiseID, i, size(s)), s, noisy(s, uint64(i)))
 
 		if fourByFour[s] {
 			out[len(out)-1].Components = append(slices.Clip(out[len(out)-1].Components), Components{4, 4})
@@ -134,7 +141,7 @@ func Cases() []Case {
 	for i, s := range thumbSizes {
 		seed := uint64(24 + i)
 		out = append(out, Case{
-			ID:         fmt.Sprintf("noise/%d/%v", seed, size(s)),
+			ID:         fmt.Sprintf(noiseID, seed, size(s)),
 			Components: []Components{{4, 4}, {4, 3}},
 			build:      noisy(s, seed),
 		})
@@ -188,5 +195,5 @@ func rgba(img image.Image) [][4]uint8 {
 }
 
 func size(p image.Point) string {
-	return fmt.Sprintf("%dx%d", p.X, p.Y)
+	return fmt.Sprintf(pair, p.X, p.Y)
 }

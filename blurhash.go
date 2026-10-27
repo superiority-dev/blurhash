@@ -14,6 +14,9 @@ import (
 // and the default for [Encoder.MaxSize] and [Decoder.MaxSize].
 const MaxSize = 4096
 
+// gotSize formats a sentinel followed by the offending pair.
+const gotSize = "%w: got %dx%d"
+
 var (
 	// ErrImageTooLarge is returned for an image wider or taller than
 	// [MaxSize], or than an Encoder's or Decoder's MaxSize.

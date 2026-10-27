@@ -88,7 +88,7 @@ func DecodeDraw(dst draw.Image, hash string, punch float64) error {
 
 func newImage(width, height, limit int) (*image.NRGBA, error) {
 	if width <= 0 || height <= 0 {
-		return nil, fmt.Errorf("%w: got %dx%d", ErrInvalidDimensions, width, height)
+		return nil, fmt.Errorf(gotSize, ErrInvalidDimensions, width, height)
 	}
 
 	r := image.Rect(0, 0, width, height)

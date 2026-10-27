@@ -52,12 +52,12 @@ func Encode(xComponents, yComponents int, img image.Image) (string, error) {
 func check(xComponents, yComponents int, img image.Image, limit int) error {
 	if xComponents < codec.MinComponents || xComponents > codec.MaxComponents ||
 		yComponents < codec.MinComponents || yComponents > codec.MaxComponents {
-		return fmt.Errorf("%w: got %dx%d", ErrInvalidComponents, xComponents, yComponents)
+		return fmt.Errorf(gotSize, ErrInvalidComponents, xComponents, yComponents)
 	}
 
 	b := img.Bounds()
 	if b.Empty() {
-		return fmt.Errorf("%w: got %dx%d", ErrInvalidDimensions, b.Dx(), b.Dy())
+		return fmt.Errorf(gotSize, ErrInvalidDimensions, b.Dx(), b.Dy())
 	}
 
 	return checkSize(b, limit)
