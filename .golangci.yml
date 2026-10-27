@@ -29,10 +29,6 @@ linters:
         - (*os.File).Close
         - (io.ReadCloser).Close
     goconst:
-      # A string written twice is one meaning in two places. Strings passed
-      # to calls count too: an empty exclude-types reads as unset, so
-      # ignore-calls is the switch. Test tables repeat inputs so each row
-      # reads on its own.
       min-occurrences: 2
       ignore-calls: false
       ignore-tests: true
