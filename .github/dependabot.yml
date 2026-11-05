@@ -6,3 +6,5 @@ updates:
       interval: weekly
     commit-message:
       prefix: ci
+    assignees:
+      - likvidatorTM
